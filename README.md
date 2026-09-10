@@ -42,10 +42,10 @@ Modelos ficam em `C:\Users\<user>\.ollama\models` (global, não no projeto). Tro
 python extrair_datas_ia.py
 ```
 
-- Lê `Arquivos/Fotos` (jpg/jpeg/png/webp/bmp/tif)
-- Envia cada foto (reduzida para 896px) para `http://localhost:11434/api/generate`
-- Prompt transcreve o carimbo, `parse_data()` converte para `datetime`, limpa GPS `7,6579S 40,1581W` e normaliza `Texto IA` para formato único `DD/MM/AAAA HH:MM:SS.mmm`
-- Mostra progresso `1/10 - Processando: ... -> 1/10 - ... 09/09/2026 17:58:59.801 OK`
+- Lê `Arquivos/Fotos` (jpg/jpeg/png/webp/bmp/tif) — generalizado para qualquer data/ano e formato (`DD/MM/AAAA`, `AAAA-MM-DD`, `9 de setembro de 2024`, `September 9, 2024`)
+- Envia cada foto em até 3 tentativas (896px completa → crop 30% rodape 1000px → 1100px completa) para `http://localhost:11434/api/generate` com retry e pausa para evitar sobrecarga em lotes grandes (150 fotos)
+- Prompt genérico transcreve qualquer data (sem fixar 2026), `parse_data()` aceita PT/EN e ISO, limpa GPS `7,6579S 40,1581W` e normaliza `Texto IA` para formato único `DD/MM/AAAA HH:MM:SS.mmm`
+- Mostra progresso `1/150 - Processando: ... -> 1/150 - ... 09/09/2026 17:58:59.801 OK`
 - Salva `Arquivos/resultado.csv` ordenado (antiga → recente)
 - Descarrega modelo da RAM ao final (`keep_alive: 0`)
 
