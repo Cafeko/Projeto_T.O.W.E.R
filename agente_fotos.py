@@ -1,7 +1,8 @@
 """Agente LLM para ordenar fotos pela data do carimbo visivel na imagem.
 
 Fluxo (conduzido pelo agente):
-  1. Pergunta o caminho das fotos
+  0. Inspeciona a pasta do projeto (estrutura, Arquivos/, resultado.csv)
+  1. Pergunta o caminho das fotos (vale caminho absoluto ou relativo ao projeto)
   2. Lista + extrai as datas com IA visao (reaproveita extrair_datas_ia.py)
   3. Pergunta: renomear as existentes OU criar copia?
      - copia -> guardadas em "Arquivos\\Fotos_Ordenadas"
@@ -9,10 +10,11 @@ Fluxo (conduzido pelo agente):
   5. Executa (reaproveita organizar_fotos.py) e resume.
 
 O LLM (Ollama local) atua como cerebro do agente:
-  - gera as falas / perguntas,
+  - gera as falas / perguntas (com contexto real da pasta do projeto),
   - interpreta respostas em linguagem natural ("pode ser copia", "renomeia ai",
     "do mais antigo pro mais novo", ...),
-  - decide a proxima ferramenta a chamar (listar -> extrair -> ordenar).
+  - decide a proxima ferramenta a chamar
+    (inspecionar_projeto -> listar -> extrair -> ordenar).
 
 Se o Ollama estiver fora do ar, o agente faz fallback para regras locais
 e continua funcionando no mesmo fluxo.
@@ -45,11 +47,63 @@ OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434").rstrip("/")
 MODELO_TEXTO = os.getenv("MODELO_TEXTO", "qwen2.5:3b")
 MODELO_VISAO = extrator.MODELO_IA  # qwen2.5vl:3b
 
-PASTA_PADRAO = Path("Arquivos/fotos")
-PASTA_COPIAS = Path("Arquivos/Fotos_Ordenadas")
-CSV_PADRAO = Path("Arquivos/resultado.csv")
+# Pasta do projeto = pasta onde este script mora. O agente enxerga o projeto
+# a partir daqui: caminhos relativos do usuario sao resolvidos contra ela.
+RAIZ_PROJETO = Path(__file__).resolve().parent
+
+PASTA_PADRAO = RAIZ_PROJETO / "Arquivos" / "fotos"
+PASTA_COPIAS = RAIZ_PROJETO / "Arquivos" / "Fotos_Ordenadas"
+CSV_PADRAO = RAIZ_PROJETO / "Arquivos" / "resultado.csv"
 
 EXTENSOES = extrator.EXTENSOES_IMAGENS
+
+
+# ============================================================
+# Ferramentas de acesso a pasta do projeto
+# ============================================================
+
+def resolver_caminho(texto: str) -> Path:
+    """Resolve o caminho digitado: absoluto vale como esta, relativo e
+    relativo a RAIZ_PROJETO (nao ao diretorio atual do terminal)."""
+    p = Path(texto.strip().strip('"').strip("'")).expanduser()
+    if not p.is_absolute():
+        p = RAIZ_PROJETO / p
+    return p
+
+
+def tool_listar_diretorio(caminho: Path) -> list[str]:
+    """TOOL inspecionar pasta: lista entradas ('nome/' = subpasta)."""
+    try:
+        entradas = sorted(caminho.iterdir(), key=lambda p: (p.is_file(), p.name.lower()))
+    except (FileNotFoundError, NotADirectoryError):
+        return []
+    nomes: list[str] = []
+    for p in entradas:
+        if p.name.startswith(".") or p.name in ("__pycache__", "env", ".git"):
+            continue
+        nomes.append(p.name + "/" if p.is_dir() else p.name)
+    return nomes
+
+
+def tool_resumo_projeto() -> dict:
+    """TOOL resumo do projeto: estrutura + situacao de Arquivos/ + CSV."""
+    arquivos_dir = RAIZ_PROJETO / "Arquivos"
+    fotos = tool_listar_fotos(PASTA_PADRAO) if PASTA_PADRAO.exists() else []
+    return {
+        "raiz": str(RAIZ_PROJETO),
+        "topo": tool_listar_diretorio(RAIZ_PROJETO),
+        "arquivos": tool_listar_diretorio(arquivos_dir),
+        "n_fotos_padrao": len(fotos),
+        "csv_existe": CSV_PADRAO.exists(),
+    }
+
+
+def mostrar_resumo_projeto(resumo: dict) -> None:
+    print(f"\n[agente: pasta do projeto -> {resumo['raiz']}]")
+    print(f"[agente: conteudo -> {', '.join(resumo['topo']) or '(vazio)'}]")
+    print(f"[agente: Arquivos/ -> {', '.join(resumo['arquivos']) or '(vazio)'}]")
+    print(f"[agente: fotos na pasta padrao -> {resumo['n_fotos_padrao']}"
+          + (f" | {CSV_PADRAO.name} existente" if resumo["csv_existe"] else "") + "]")
 
 
 # ============================================================
@@ -247,24 +301,36 @@ def tool_aplicar_ordenacao(ordem: str, origem: Path, modo: str):
 
 def perguntar_caminho(modelo: str | None, inicial: str | None) -> Path:
     if inicial:
-        p = Path(inicial).expanduser()
-        if p.exists():
+        p = resolver_caminho(inicial)
+        if p.exists() and tool_listar_fotos(p):
             print(f"[agente: usando pasta informada -> {p}]")
             return p
-        print(f"Pasta '{inicial}' nao encontrada. Vamos tentar de novo.")
+        print(f"Pasta '{inicial}' vazia ou nao encontrada. Vamos tentar de novo.")
     print(fala_do_agente(modelo, "pedir_caminho"))
     while True:
-        resp = input("> ").strip().strip('"').strip("'")
-        p = Path(resp).expanduser() if resp else PASTA_PADRAO
-        fotos = tool_listar_fotos(p)
+        resp = input("> ").strip()
+        p = PASTA_PADRAO if not resp else resolver_caminho(resp)
         if not p.exists():
-            print(f"Pasta '{p}' nao existe. Digite outro caminho.")
+            print(f"Pasta '{p}' nao existe.")
+            sugerir_pastas()
             continue
+        fotos = tool_listar_fotos(p)
         if not fotos:
-            print(f"Nenhuma imagem em '{p}'. Digite outro caminho (jpg/jpeg/png/webp/bmp/tif).")
+            print(f"Nenhuma imagem em '{p}'.")
+            sugerir_pastas()
             continue
         print(f"[agente: encontrei {len(fotos)} fotos em '{p}']")
         return p
+
+
+def sugerir_pastas() -> None:
+    """O agente olha a pasta do projeto e sugere onde podem estar as fotos."""
+    raiz = tool_listar_diretorio(RAIZ_PROJETO)
+    arq = tool_listar_diretorio(RAIZ_PROJETO / "Arquivos")
+    print(f"[agente: na pasta do projeto ha: {', '.join(raiz) or '(vazio)'}]")
+    if arq:
+        print(f"[agente: em Arquivos/ ha: {', '.join(arq)}]")
+    print("Digite outro caminho (absoluto ou relativo a pasta do projeto).")
 
 
 def perguntar_modo(modelo: str | None, n_fotos: int) -> str:
@@ -305,6 +371,10 @@ def main() -> None:
         print("[agente: Ollama indisponivel - seguindo com regras locais no mesmo fluxo]")
 
     print(fala_do_agente(modelo, "boas_vindas"))
+
+    # Passo 0: o agente inspeciona a pasta do projeto (TOOL)
+    resumo = tool_resumo_projeto()
+    mostrar_resumo_projeto(resumo)
 
     # Passo 1-2: caminho + extracao (TOOLS)
     origem = perguntar_caminho(modelo, args.pasta)
