@@ -7,14 +7,15 @@ PASTA_FOTOS = Path("Arquivos/fotos")
 PASTA_DESTINO = Path("Arquivos/Fotos_Ordenadas")
 ARQUIVO_CSV = Path("Arquivos/resultado.csv")
 
-def carregar_ordem():
-    """Le resultado.csv e retorna lista ordenada por data_hora."""
-    if not ARQUIVO_CSV.exists():
-        print(f"ERRO: {ARQUIVO_CSV} nao encontrado. Rode primeiro image_ordenator_ia.py")
+def carregar_ordem(csv_path: Path | None = None):
+    """Le resultado.csv e retorna (com_data, sem_data) ordenada por data_hora."""
+    csv_path = Path(csv_path) if csv_path else ARQUIVO_CSV
+    if not csv_path.exists():
+        print(f"ERRO: {csv_path} nao encontrado. Rode primeiro extrair_datas_ia.py")
         return None
 
     resultados = []
-    with open(ARQUIVO_CSV, newline="", encoding="utf-8-sig") as f:
+    with open(csv_path, newline="", encoding="utf-8-sig") as f:
         for row in csv.DictReader(f):
             # Data/Hora no formato 09/09/2026 15:15:52.775
             dth = row.get("Data/Hora", "").strip()
@@ -48,10 +49,28 @@ def escolher_ordem():
             return op
         print("Opcao invalida. Digite 1 ou 2.")
 
-def copiar_ordenado(ordem: str):
-    com_data, sem_data = carregar_ordem() or (None, None)
-    if com_data is None:
-        return
+def aplicar_ordenacao(ordem: str, pasta_origem: Path | str | None = None,
+                      pasta_destino: Path | str | None = None,
+                      csv_path: Path | str | None = None,
+                      modo: str = "copia"):
+    """Ordena fotos segundo o CSV.
+
+    ordem: "1" = mais antiga primeiro, "2" = mais recente primeiro.
+    modo: "copia" -> copia para pasta_destino (padrao Arquivos/Fotos_Ordenadas).
+          "renomear" -> renomeia os arquivos dentro da pasta_origem.
+    Retorna lista de (origem, destino_final).
+    """
+    pasta_origem = Path(pasta_origem) if pasta_origem else PASTA_FOTOS
+    pasta_destino = Path(pasta_destino) if pasta_destino else PASTA_DESTINO
+    modo = (modo or "copia").strip().lower()
+    if modo not in ("copia", "copiar", "renomear", "renomear_existentes"):
+        modo = "copia"
+    renomear = modo.startswith("renomear")
+
+    dados = carregar_ordem(Path(csv_path) if csv_path else None)
+    if dados is None:
+        return []
+    com_data, sem_data = dados
 
     # define ordem
     if ordem == "2":  # mais recente primeiro
@@ -62,28 +81,68 @@ def copiar_ordenado(ordem: str):
 
     # lista final: com data ordenada + sem data no final (mantem ordem original)
     lista_final = com_data + sem_data
+    realizados = []
 
-    # prepara destino
-    PASTA_DESTINO.mkdir(parents=True, exist_ok=True)
+    if renomear:
+        # Renomeia dentro da pasta_origem em 2 fases (temp -> final)
+        # para evitar colisao quando o destino ja existe.
+        print(f"\nRenomeando {len(lista_final)} fotos ({descricao}) em: {pasta_origem}\n")
+        fase1 = []
+        for idx, item in enumerate(lista_final, start=1):
+            origem = pasta_origem / item["arquivo"]
+            if not origem.exists():
+                print(f"{idx}/{len(lista_final)} - {item['arquivo']} NAO ENCONTRADA em {pasta_origem}")
+                continue
+            ext = origem.suffix
+            temp = pasta_origem / f"__tmp_ordenar_{idx}__{origem.name}"
+            try:
+                origem.rename(temp)
+            except FileNotFoundError:
+                # pode ja ter sido movida se CSV tinha duplicata; tenta localizar
+                print(f"{idx}/{len(lista_final)} - {item['arquivo']} NAO ENCONTRADA (ja movida?)")
+                continue
+            fase1.append((temp, idx, ext, item))
+        for temp, idx, ext, item in fase1:
+            destino = pasta_origem / f"Foto ({idx}){ext}"
+            if destino.exists() and destino != temp:
+                destino.unlink()
+            temp.rename(destino)
+            realizados.append((temp, destino))
+            dt_txt = item["data_hora"].strftime("%d/%m/%Y %H:%M:%S.%f")[:-3] if item["data_hora"] else "SEM DATA"
+            print(f"{idx}/{len(lista_final)} - {item['arquivo']} -> Foto ({idx}){ext}  {dt_txt}  {item['status']}")
+        print(f"\nConcluido. Fotos renomeadas em: {pasta_origem}")
+        return realizados
+
+    # modo copia: prepara destino
+    pasta_destino.mkdir(parents=True, exist_ok=True)
     # limpa destino antes
-    for p in PASTA_DESTINO.iterdir():
+    for p in pasta_destino.iterdir():
         if p.is_file():
             p.unlink()
 
-    print(f"\nOrdenando {len(lista_final)} fotos ({descricao}) -> {PASTA_DESTINO}\n")
+    print(f"\nOrdenando {len(lista_final)} fotos ({descricao}) -> {pasta_destino}\n")
     for idx, item in enumerate(lista_final, start=1):
-        origem = PASTA_FOTOS / item["arquivo"]
+        origem = pasta_origem / item["arquivo"]
         if not origem.exists():
-            print(f"{idx}/{len(lista_final)} - {item['arquivo']} NAO ENCONTRADA na pasta Fotos")
+            print(f"{idx}/{len(lista_final)} - {item['arquivo']} NAO ENCONTRADA na pasta {pasta_origem}")
             continue
         # mantem extensao original (.jpeg/.jpg)
         ext = origem.suffix  # .jpeg
-        destino = PASTA_DESTINO / f"Foto ({idx}){ext}"
+        destino = pasta_destino / f"Foto ({idx}){ext}"
         shutil.copy2(origem, destino)
+        realizados.append((origem, destino))
         dt_txt = item["data_hora"].strftime("%d/%m/%Y %H:%M:%S.%f")[:-3] if item["data_hora"] else "SEM DATA"
         print(f"{idx}/{len(lista_final)} - {item['arquivo']} -> Foto ({idx}){ext}  {dt_txt}  {item['status']}")
 
-    print(f"\nConcluido. Fotos ordenadas em: {PASTA_DESTINO}")
+    print(f"\nConcluido. Fotos ordenadas em: {pasta_destino}")
+    return realizados
+
+
+def copiar_ordenado(ordem: str, pasta_origem=None, pasta_destino=None, csv_path=None):
+    """Compat: mantem comportamento antigo (copia)."""
+    return aplicar_ordenacao(ordem, pasta_origem=pasta_origem,
+                             pasta_destino=pasta_destino, csv_path=csv_path,
+                             modo="copia")
 
 def main():
     import sys

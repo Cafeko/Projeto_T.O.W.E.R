@@ -8,14 +8,36 @@ Pipeline atual: **IA local (Qwen2.5-VL) → CSV ordenado → cópia renomeada**.
 
 ```
 Telecom_/
+├── agente_fotos.py          # 0 - AGENTE LLM (fluxo completo conversacional) ← use este
 ├── extrair_datas_ia.py      # 1 - extrai datas com IA e gera resultado.csv
-├── organizar_fotos.py       # 2 - copia para Fotos_Ordenadas renomeado
+├── organizar_fotos.py       # 2 - copia/renomeia para Fotos_Ordenadas ou na origem
 ├── requirements.txt
 ├── Arquivos/
 │   ├── Fotos/               # entrada - coloque as fotos aqui
 │   ├── Fotos_Ordenadas/     # saída - Foto (1).jpeg ... Foto (n).jpeg
 │   └── resultado.csv        # Data,Hora,Data/Hora,Status,Texto IA
 ```
+
+## Uso (recomendado: agente LLM)
+
+```bash
+python agente_fotos.py
+python agente_fotos.py --pasta Arquivos/fotos
+python agente_fotos.py --sem-llm        # sem LLM, com regras locais (mesmo fluxo)
+python agente_fotos.py --modelo qwen2.5:3b
+```
+
+Fluxo do agente:
+1. Pergunta o caminho das fotos (Enter = `Arquivos/fotos`) e lista as imagens
+2. Extrai as datas com a IA de visão (mesmo pipeline de `extrair_datas_ia.py`)
+3. Pergunta: **criar cópia** ordenada em `Arquivos\Fotos_Ordenadas` **ou renomear** os originais?
+4. Pergunta a ordem: **mais antiga primeiro** ou **mais nova primeiro**?
+5. Executa e resume.
+
+O LLM (Ollama local, `MODELO_TEXTO`, default `qwen2.5:3b` com fallback para
+`qwen2.5vl:3b`) gera as falas e interpreta respostas em linguagem natural
+(ex: "cria copia", "renomeia ai", "do mais antigo pro mais novo"). Se o Ollama
+estiver fora do ar, o agente continua no mesmo fluxo com regras locais.
 
 ## Requisitos
 
@@ -56,7 +78,7 @@ Arquivo,Data,Hora,Data/Hora,Status,Texto IA
 image.jpeg,09/09/2026,15:15:52.775,09/09/2026 15:15:52.775,OK,09/09/2026 15:15:52.775
 ```
 
-### 2. Organizar fotos
+### 2. Organizar fotos (manual, sem agente)
 
 ```bash
 python organizar_fotos.py          # interativo
@@ -67,7 +89,8 @@ python organizar_fotos.py --recente
 ```
 
 - Lê `resultado.csv`, ordena por data
-- Limpa `Fotos_Ordenadas` e copia com `shutil.copy2` como `Foto (1).jpeg` … `Foto (n).jpeg` (mantém extensão)
+- Modo padrão: limpa `Fotos_Ordenadas` e copia com `shutil.copy2` como `Foto (1).jpeg` … `Foto (n).jpeg` (mantém extensão)
+- Modo renomear (via agente ou `aplicar_ordenacao(..., modo="renomear")`): renomeia na própria pasta de origem em 2 fases (temp → final) para evitar colisão
 - Fotos sem data vão por último
 
 ## Fluxo completo

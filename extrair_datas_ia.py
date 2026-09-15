@@ -257,9 +257,10 @@ def processar_foto(caminho: Path, idx: int = 0, total: int = 0):
     print(f"  -> {idx}/{total} - {caminho.name} {dt_txt} {resultado['status']}")
     return resultado
 
-def salvar_csv(resultados):
-    ARQUIVO_RESULTADO.parent.mkdir(parents=True, exist_ok=True)
-    with open(ARQUIVO_RESULTADO, "w", newline="", encoding="utf-8-sig") as f:
+def salvar_csv(resultados, destino: Path | str | None = None):
+    destino = Path(destino) if destino else ARQUIVO_RESULTADO
+    destino.parent.mkdir(parents=True, exist_ok=True)
+    with open(destino, "w", newline="", encoding="utf-8-sig") as f:
         w = csv.writer(f)
         w.writerow(["Arquivo", "Data", "Hora", "Data/Hora", "Status", "Texto IA"])
         for r in resultados:
@@ -302,16 +303,23 @@ def verificar_ollama():
         return False
     return False
 
-def main():
-    if not PASTA_FOTOS.exists():
-        print(f"Pasta '{PASTA_FOTOS}' nao existe. Crie e coloque as fotos.")
-        return
-    arquivos = [a for a in PASTA_FOTOS.iterdir() if a.is_file() and a.suffix.lower() in EXTENSOES_IMAGENS]
+def processar_pasta(pasta: Path | str | None = None,
+                    csv_saida: Path | str | None = None):
+    """Extrai datas de todas as fotos de `pasta` e salva CSV em `csv_saida`.
+
+    Retorna lista de resultados. Reaproveitado pelo agente LLM.
+    """
+    pasta = Path(pasta) if pasta else PASTA_FOTOS
+    csv_saida = Path(csv_saida) if csv_saida else ARQUIVO_RESULTADO
+    if not pasta.exists():
+        print(f"Pasta '{pasta}' nao existe. Crie e coloque as fotos.")
+        return []
+    arquivos = [a for a in pasta.iterdir() if a.is_file() and a.suffix.lower() in EXTENSOES_IMAGENS]
     if not arquivos:
         print("Nenhuma imagem encontrada.")
-        return
+        return []
 
-    print(f"Foram encontradas {len(arquivos)} fotos.\n")
+    print(f"Foram encontradas {len(arquivos)} fotos em '{pasta}'.\n")
     verificar_ollama()
     print()
 
@@ -322,9 +330,14 @@ def main():
 
     resultados.sort(key=lambda r: (r["data_hora"] is None, r["data_hora"] if r["data_hora"] else datetime.max))
     mostrar_resultados(resultados)
-    salvar_csv(resultados)
-    print(f"\nResultado salvo em: {ARQUIVO_RESULTADO}")
+    salvar_csv(resultados, csv_saida)
+    print(f"\nResultado salvo em: {csv_saida}")
     descarregar_modelo()
+    return resultados
+
+
+def main():
+    processar_pasta()
 
 if __name__ == "__main__":
     main()
