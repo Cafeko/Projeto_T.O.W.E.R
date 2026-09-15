@@ -2,7 +2,14 @@
 
 Organiza fotos pela **data/hora do carimbo visível na imagem** (ex: `quarta-feira, 9 de setembro de 2026 17:58:53`). Útil para gerar relatórios de atividades de Telecom com as fotos em ordem cronológica.
 
-Pipeline: **IA local de visão lê a data → `Arquivos/resultado.csv` → cópia ou renomeação ordenada (`Foto (1)`, `Foto (2)`, …)**.
+Pipeline: **extrair as datas → `Arquivos/resultado.csv` → cópia ou renomeação ordenada (`Foto (1)`, `Foto (2)`, …)**.
+
+Há **duas formas de usar**, que terminam no mesmo lugar:
+
+| Forma | Quem extrai as datas | Quem executa a ordenação |
+|-------|---------------------|--------------------------|
+| **Agente externo** (OpenCode, Claude Code, Cursor…) — ver `AGENTS.md` | O próprio agente: lê cada imagem e grava o CSV | O script `organizar_fotos.py` (chamado pelo agente) |
+| **Assistente de terminal** (`agente_fotos.py`) | IA local de visão (Ollama `qwen2.5vl:3b`) | O script `organizar_fotos.py` (chamado pelo assistente) |
 
 ## Como funciona (visão geral)
 
@@ -44,7 +51,27 @@ ollama serve              # deixar rodando
 pip install -r requisitos.txt
 ```
 
-## Uso recomendado: agente LLM
+## Uso com agente externo (principal)
+
+Abra a pasta do projeto no seu agente (OpenCode, Claude Code, Cursor…). Ele segue o `AGENTS.md`:
+
+1. Pergunta o caminho das fotos
+2. **Ele mesmo lê cada imagem**, transcreve a data do carimbo e grava `Arquivos/resultado.csv`
+3. Pergunta: **cópia** em `Arquivos\Fotos_Ordenadas` ou **renomear** os originais?
+4. Pergunta a ordem: **mais antiga** ou **mais nova primeiro**?
+5. **Executa `organizar_fotos.py`** e resume
+
+Formato que o agente grava no CSV (`utf-8-sig`):
+
+```
+Arquivo,Data,Hora,Data/Hora,Status,Texto IA
+image.jpeg,09/09/2026,15:15:52.775,09/09/2026 15:15:52.775,OK,09/09/2026 15:15:52.775
+semdata.jpeg,,,,DATA NÃO ENCONTRADA,texto lido na imagem
+```
+
+Fotos sem data legível ficam com Data/Hora vazios e vão por último — nunca são descartadas.
+
+## Uso com assistente de terminal: agente LLM
 
 ```bash
 python agente_fotos.py
@@ -91,11 +118,11 @@ semdata.jpeg,,,,DATA NÃO ENCONTRADA,texto lido na imagem
 ### `organizar_fotos.py` — etapa 2 (ordenação)
 
 ```bash
-python organizar_fotos.py          # interativo
-python organizar_fotos.py 1        # mais antiga primeiro -> Foto (1) = mais antiga
-python organizar_fotos.py 2        # mais recente primeiro -> Foto (1) = mais recente
-python organizar_fotos.py --antiga
-python organizar_fotos.py --recente
+python organizar_fotos.py 1 --origem Arquivos/Fotos --modo copia     # copia, antiga primeiro
+python organizar_fotos.py 2 --origem Arquivos/Fotos --modo copia     # copia, nova primeiro
+python organizar_fotos.py 1 --origem Arquivos/Fotos --modo renomear  # renomeia, antiga primeiro
+python organizar_fotos.py 2 --origem Arquivos/Fotos --modo renomear  # renomeia, nova primeiro
+python organizar_fotos.py --help   # todos os flags (--origem, --csv, --modo, --destino)
 # ou como função:
 # organizar_fotos.aplicar_ordenacao(ordem, pasta_origem, pasta_destino, csv_path, modo)
 #   ordem: "1" (antiga) | "2" (nova) — modo: "copia" | "renomear"
@@ -113,11 +140,11 @@ Junta as duas etapas num fluxo conversacional. Ferramentas que ele usa (todas re
 - `tool_extrair_datas` → `extrair_datas_ia.processar_pasta`
 - `tool_aplicar_ordenacao` → `organizar_fotos.aplicar_ordenacao`
 
-## Fluxo manual (sem agente)
+## Fluxo manual (extração via Ollama, sem agente)
 
 ```bash
 python extrair_datas_ia.py
-python organizar_fotos.py 1
+python organizar_fotos.py 1 --modo copia
 ```
 
 ## Notas

@@ -144,20 +144,38 @@ def copiar_ordenado(ordem: str, pasta_origem=None, pasta_destino=None, csv_path=
                              pasta_destino=pasta_destino, csv_path=csv_path,
                              modo="copia")
 
-def main():
-    import sys
-    # permite: python ordenar_fotos.py 1  ou  2  ou  --recente/--antiga
-    if len(sys.argv) > 1:
-        arg = sys.argv[1].lower()
-        if arg in ("1", "antiga", "--antiga", "antigo"):
-            copiar_ordenado("1")
-            return
-        if arg in ("2", "recente", "--recente", "recentes"):
-            copiar_ordenado("2")
-            return
-    # interativo
-    ordem = escolher_ordem()
-    copiar_ordenado(ordem)
+def main(argv=None):
+    import argparse
+    ap = argparse.ArgumentParser(
+        description="Ordena fotos a partir de Arquivos/resultado.csv "
+                    "(copia para Fotos_Ordenadas ou renomeia na origem).")
+    ap.add_argument("ordem", nargs="?", default=None,
+                    help="1/antiga = mais antiga primeiro; 2/recente = mais nova primeiro "
+                         "(omitido = pergunta interativamente)")
+    ap.add_argument("--origem", default=None,
+                    help="pasta das fotos (padrao: Arquivos/fotos)")
+    ap.add_argument("--csv", default=None,
+                    help="CSV com as datas (padrao: Arquivos/resultado.csv)")
+    ap.add_argument("--modo", default="copia", choices=["copia", "renomear"],
+                    help="copia = copia ordenada p/ destino; renomear = renomeia na origem")
+    ap.add_argument("--destino", default=None,
+                    help="pasta das copias (padrao: Arquivos/Fotos_Ordenadas; ignorado no modo renomear)")
+    args = ap.parse_args(argv)
+
+    # formas legadas: 1, antiga, --antiga, antigo / 2, recente, --recente, recentes
+    ordem = None
+    if args.ordem:
+        a = args.ordem.lower()
+        if a in ("1", "antiga", "--antiga", "antigo"):
+            ordem = "1"
+        elif a in ("2", "recente", "--recente", "recentes"):
+            ordem = "2"
+        else:
+            ap.error(f"ordem invalida: {args.ordem!r} (use 1 ou 2)")
+    if ordem is None:
+        ordem = escolher_ordem()
+    aplicar_ordenacao(ordem, pasta_origem=args.origem, pasta_destino=args.destino,
+                      csv_path=args.csv, modo=args.modo)
 
 if __name__ == "__main__":
     main()
