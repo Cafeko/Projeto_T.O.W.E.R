@@ -6,6 +6,14 @@ from pathlib import Path
 PASTA_FOTOS = Path("Arquivos/fotos")
 PASTA_DESTINO = Path("Arquivos/Fotos_Ordenadas")
 ARQUIVO_CSV = Path("Arquivos/resultado.csv")
+CABECALHO_CSV = ["Arquivo", "Data", "Hora", "Data/Hora", "Status", "Texto IA"]
+
+def limpar_csv(csv_path: Path | str | None = None):
+    """Limpa a tabela: apaga as linhas e mantem so o cabecalho (utf-8-sig)."""
+    csv_path = Path(csv_path) if csv_path else ARQUIVO_CSV
+    with open(csv_path, "w", newline="", encoding="utf-8-sig") as f:
+        csv.writer(f).writerow(CABECALHO_CSV)
+    print(f"Tabela limpa: {csv_path} (so cabecalho).")
 
 def carregar_ordem(csv_path: Path | None = None):
     """Le resultado.csv e retorna (com_data, sem_data) ordenada por data_hora."""
@@ -52,22 +60,24 @@ def escolher_ordem():
 def aplicar_ordenacao(ordem: str, pasta_origem: Path | str | None = None,
                       pasta_destino: Path | str | None = None,
                       csv_path: Path | str | None = None,
-                      modo: str = "copia"):
+                      modo: str = "copia", limpar_tabela: bool = True):
     """Ordena fotos segundo o CSV.
 
     ordem: "1" = mais antiga primeiro, "2" = mais recente primeiro.
     modo: "copia" -> copia para pasta_destino (padrao Arquivos/Fotos_Ordenadas).
           "renomear" -> renomeia os arquivos dentro da pasta_origem.
+    limpar_tabela: ao concluir, limpa o CSV (so cabecalho) para a proxima leva.
     Retorna lista de (origem, destino_final).
     """
     pasta_origem = Path(pasta_origem) if pasta_origem else PASTA_FOTOS
     pasta_destino = Path(pasta_destino) if pasta_destino else PASTA_DESTINO
+    csv_path = Path(csv_path) if csv_path else ARQUIVO_CSV
     modo = (modo or "copia").strip().lower()
     if modo not in ("copia", "copiar", "renomear", "renomear_existentes"):
         modo = "copia"
     renomear = modo.startswith("renomear")
 
-    dados = carregar_ordem(Path(csv_path) if csv_path else None)
+    dados = carregar_ordem(csv_path)
     if dados is None:
         return []
     com_data, sem_data = dados
@@ -111,6 +121,8 @@ def aplicar_ordenacao(ordem: str, pasta_origem: Path | str | None = None,
             dt_txt = item["data_hora"].strftime("%d/%m/%Y %H:%M:%S.%f")[:-3] if item["data_hora"] else "SEM DATA"
             print(f"{idx}/{len(lista_final)} - {item['arquivo']} -> Foto ({idx}){ext}  {dt_txt}  {item['status']}")
         print(f"\nConcluido. Fotos renomeadas em: {pasta_origem}")
+        if limpar_tabela:
+            limpar_csv(csv_path)
         return realizados
 
     # modo copia: prepara destino
@@ -135,14 +147,17 @@ def aplicar_ordenacao(ordem: str, pasta_origem: Path | str | None = None,
         print(f"{idx}/{len(lista_final)} - {item['arquivo']} -> Foto ({idx}){ext}  {dt_txt}  {item['status']}")
 
     print(f"\nConcluido. Fotos ordenadas em: {pasta_destino}")
+    if limpar_tabela:
+        limpar_csv(csv_path)
     return realizados
 
 
-def copiar_ordenado(ordem: str, pasta_origem=None, pasta_destino=None, csv_path=None):
+def copiar_ordenado(ordem: str, pasta_origem=None, pasta_destino=None, csv_path=None,
+                    limpar_tabela: bool = True):
     """Compat: mantem comportamento antigo (copia)."""
     return aplicar_ordenacao(ordem, pasta_origem=pasta_origem,
                              pasta_destino=pasta_destino, csv_path=csv_path,
-                             modo="copia")
+                             modo="copia", limpar_tabela=limpar_tabela)
 
 def main(argv=None):
     import argparse
@@ -160,6 +175,8 @@ def main(argv=None):
                     help="copia = copia ordenada p/ destino; renomear = renomeia na origem")
     ap.add_argument("--destino", default=None,
                     help="pasta das copias (padrao: Arquivos/Fotos_Ordenadas; ignorado no modo renomear)")
+    ap.add_argument("--manter-csv", action="store_true",
+                    help="nao limpa o resultado.csv ao concluir (padrao: limpa so p/ cabecalho)")
     args = ap.parse_args(argv)
 
     # formas legadas: 1, antiga, --antiga, antigo / 2, recente, --recente, recentes
@@ -175,7 +192,8 @@ def main(argv=None):
     if ordem is None:
         ordem = escolher_ordem()
     aplicar_ordenacao(ordem, pasta_origem=args.origem, pasta_destino=args.destino,
-                      csv_path=args.csv, modo=args.modo)
+                      csv_path=args.csv, modo=args.modo,
+                      limpar_tabela=not args.manter_csv)
 
 if __name__ == "__main__":
     main()

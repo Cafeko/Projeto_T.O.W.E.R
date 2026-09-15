@@ -131,6 +131,7 @@ python organizar_fotos.py --help   # todos os flags (--origem, --csv, --modo, --
 - Lê o `resultado.csv` e ordena por data/hora. **Fotos sem data vão por último**, mantendo a ordem original entre elas.
 - **Modo cópia** (padrão): limpa `Arquivos/Fotos_Ordenadas` e copia com `shutil.copy2` como `Foto (1).ext` … `Foto (n).ext`, mantendo a extensão original de cada foto.
 - **Modo renomear**: renomeia dentro da própria pasta de origem, em 2 fases (nome temporário → nome final) para evitar colisões quando o destino já existe.
+- **Limpeza automática**: ao concluir (nos dois modos), o CSV volta a ter só o cabeçalho — a próxima leva começa do zero sem trabalho manual (`--manter-csv` desativa isso).
 
 ### `agente_fotos.py` — o orquestrador
 

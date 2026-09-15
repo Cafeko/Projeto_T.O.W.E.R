@@ -27,7 +27,7 @@ Sempre nesta ordem, perguntando antes de agir:
 2. **Extrair datas (VOCÊ faz)** — abra e leia **cada imagem** (o carimbo fica em geral no rodapé), transcreva a data/hora e **grave `Arquivos/resultado.csv`** no formato exato abaixo. Não prossiga se não houver fotos. Não use `agente_fotos.py` nem `extrair_datas_ia.py` aqui.
 3. **Cópia ou renomear?** — `1` = criar cópia ordenada em `Arquivos\Fotos_Ordenadas`; `2` = renomear os originais na própria pasta. Aceite linguagem natural ("cria copia", "renomeia ai").
 4. **Ordem** — `1` = mais antiga primeiro (`Foto (1)` = mais antiga); `2` = mais nova primeiro.
-5. **Executar via script e resumir** — rode `organizar_fotos.py` com os flags correspondentes (ver Comandos) e informe quantidade, destino e ordem usada.
+5. **Executar via script e resumir** — rode `organizar_fotos.py` com os flags correspondentes (ver Comandos) e informe quantidade, destino e ordem usada. O script **limpa o CSV sozinho** ao concluir (só cabeçalho) — você não precisa mexer na tabela depois.
 
 ## Como ler as datas das imagens
 
