@@ -1,4 +1,12 @@
-"""Agente LLM para ordenar fotos pela data do carimbo visivel na imagem.
+"""USO MANUAL APENAS (pessoa no terminal) — assistente conversacional com Ollama local.
+
+PROIBIDO para agentes externos (OpenCode, Claude Code, Cursor, etc.):
+agentes externos NÃO devem executar, importar ou reaproveitar este arquivo.
+O agente externo segue o AGENTS.md: ele mesmo lê cada imagem, grava
+Arquivos/resultado.csv e ordena SOMENTE via organizar_fotos.py
+(nunca renomeia/copia manualmente).
+
+Este script é só para uma pessoa usar manualmente no terminal.
 
 Fluxo (conduzido pelo agente):
   0. Inspeciona a pasta do projeto (estrutura, Arquivos/, resultado.csv)

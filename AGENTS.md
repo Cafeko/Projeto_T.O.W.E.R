@@ -3,10 +3,16 @@
 > Instruções para qualquer agente externo operando nesta pasta.
 > Idioma do usuário: português. Responda em português, de forma curta e direta.
 >
-> **Modelo de atuação: VOCÊ é o agente.** Não use `agente_fotos.py`
-> (ele é um assistente de terminal à parte, não faz parte deste fluxo).
-> Você mesmo extrai as datas das imagens e grava a tabela; o script
-> `organizar_fotos.py` só entra no final, para executar a cópia/renomeação.
+> **Modelo de atuação: VOCÊ é o agente.**
+> **PROIBIDO usar modelo local ou qualquer outro modelo via código:**
+> não use `extrair_datas_ia.py`, `agente_fotos.py`, Ollama (`localhost:11434`,
+> `qwen2.5vl`, `llava`, etc.), `pytesseract`/OCR, `requests` para IA, nem
+> `subprocess` para chamar modelos. Esses arquivos/scripts são de
+> **USO MANUAL, só uma pessoa no terminal** — não fazem parte do seu fluxo.
+> **VOCÊ mesmo abre e lê cada imagem** (sua visão) e grava a tabela;
+> o script `organizar_fotos.py` só entra no final, para executar a
+> cópia/renomeação. **Nunca renomeie/copie foto por conta própria**
+> (nada de `os.rename`, `shutil`, `move`, `copy` ou script ad-hoc).
 
 ## O que é este projeto
 
@@ -24,7 +30,7 @@ Arquivos/
 Sempre nesta ordem, perguntando antes de agir:
 
 1. **Caminho das fotos** — aceite absoluto ou relativo à raiz do projeto. Enter = `Arquivos/fotos`. Se inválido/vazio, liste a pasta do projeto e `Arquivos/` para sugerir.
-2. **Extrair datas (VOCÊ faz)** — abra e leia **cada imagem** (o carimbo fica em geral no rodapé), transcreva a data/hora e **grave `Arquivos/resultado.csv`** no formato exato abaixo. Não prossiga se não houver fotos. Não use `agente_fotos.py` nem `extrair_datas_ia.py` aqui.
+2. **Extrair datas (VOCÊ faz)** — abra e leia **cada imagem** (o carimbo fica em geral no rodapé), transcreva a data/hora e **grave `Arquivos/resultado.csv`** no formato exato abaixo. Não prossiga se não houver fotos. Não use `agente_fotos.py`, `extrair_datas_ia.py`, Ollama, OCR ou qualquer modelo via código aqui.
 3. **Cópia ou renomear?** — `1` = criar cópia ordenada em `Arquivos\Fotos_Ordenadas`; `2` = renomear os originais na própria pasta. Aceite linguagem natural ("cria copia", "renomeia ai").
 4. **Ordem** — `1` = mais antiga primeiro (`Foto (1)` = mais antiga); `2` = mais nova primeiro.
 5. **Executar via script e resumir** — rode `organizar_fotos.py` com os flags correspondentes (ver Comandos) e informe quantidade, destino e ordem usada. O script **limpa o CSV sozinho** ao concluir (só cabeçalho) — você não precisa mexer na tabela depois.
@@ -54,6 +60,7 @@ semdata.jpeg,,,,DATA NÃO ENCONTRADA,texto lido na imagem
 
 - **Nunca renomear/copiar fotos manualmente** (nada de `os.rename`, `shutil` ou scripts ad-hoc): a ordenação física é **sempre** via `organizar_fotos.py`.
 - **A extração das datas é SUA tarefa** (ler imagens + gravar CSV). Os scripts de extração com Ollama (`extrair_datas_ia.py`) e o assistente de terminal (`agente_fotos.py`) **não fazem parte deste fluxo** — não os chame.
+- **PROIBIDO modelo local via código:** nada de Ollama/`localhost:11434`, `qwen2.5vl`/`llava`, `pytesseract`/OCR, `requests` para IA ou `subprocess` chamando modelo. Modelo local/outro modelo via código é **só manual, por uma pessoa no terminal**.
 - **Execução**: rode o script a partir da **raiz do projeto**; caminhos relativos se resolvem contra a raiz.
 - **Git**: `Arquivos/Fotos/` e `Arquivos/Fotos_Ordenadas/` são gitignored — não force commit de fotos. Commits só sob pedido explícito.
 

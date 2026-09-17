@@ -1,8 +1,11 @@
+# Núcleo da ordenação (organizar_fotos.py — usado pelo agente externo e manual): stdlib apenas.
+# Dependências abaixo são SÓ para uso manual por pessoa (extrair_datas_ia.py / agente_fotos.py com Ollama local).
+# Agente externo NÃO usa modelo local: proibido extrair_datas_ia.py, agente_fotos.py, Ollama, pytesseract/OCR.
 certifi==2026.7.22
 charset-normalizer==3.5.1
 idna==3.19
 packaging==26.3
-pillow==12.3.0
-pytesseract==0.3.13
-requests==2.34.2
+pillow==12.3.0  # manual: preparo das imagens p/ Ollama
+pytesseract==0.3.13  # manual opcional: OCR alternativo (nunca via agente externo)
+requests==2.34.2  # manual: conversa com Ollama em localhost:11434
 urllib3==2.7.0

@@ -8,13 +8,22 @@ Há **duas formas de usar**, que terminam no mesmo lugar:
 
 | Forma | Quem extrai as datas | Quem executa a ordenação |
 |-------|---------------------|--------------------------|
-| **Agente externo** (OpenCode, Claude Code, Cursor…) — ver `AGENTS.md` | O próprio agente: lê cada imagem e grava o CSV | O script `organizar_fotos.py` (chamado pelo agente) |
-| **Assistente de terminal** (`agente_fotos.py`) | IA local de visão (Ollama `qwen2.5vl:3b`) | O script `organizar_fotos.py` (chamado pelo assistente) |
+| **Agente externo** (OpenCode, Claude Code, Cursor…) — ver `AGENTS.md` | O próprio agente: lê cada imagem com a própria visão e grava o CSV. **PROIBIDO usar modelo local** (`extrair_datas_ia.py`, `agente_fotos.py`, Ollama, OCR) e **PROIBIDO renomear/copiar manualmente** | O script `organizar_fotos.py` (chamado pelo agente — único meio permitido de copiar/renomear) |
+| **Manual por pessoa no terminal** (`agente_fotos.py` / `extrair_datas_ia.py`) | Pessoa executa o script com IA local de visão (Ollama `qwen2.5vl:3b`) | O script `organizar_fotos.py` |
+
+> **Regra importante:** modelo local ou qualquer outro modelo via código
+> (`extrair_datas_ia.py`, `agente_fotos.py`, Ollama, `pytesseract`, etc.)
+> é **só manual, por uma pessoa no terminal**. Agente externo nunca usa isso:
+> ele mesmo extrai as datas e só usa `organizar_fotos.py` para copiar/renomear.
 
 ## Como funciona (visão geral)
 
 1. **Você aponta a pasta com as fotos.** Pode ser `Arquivos/Fotos` ou qualquer outra pasta (caminho absoluto ou relativo à raiz do projeto).
-2. **A IA extrai a data de cada foto.** O modelo de visão `qwen2.5vl:3b` (via Ollama, tudo local) lê o carimbo de data/hora na imagem, em até 3 tentativas por foto (imagem completa → recorte do rodapé → imagem maior). Cada data é normalizada para o formato `DD/MM/AAAA HH:MM:SS.mmm` e salva em `Arquivos/resultado.csv`. Fotos sem data legível **não são descartadas**: vão para o final da ordenação.
+2. **Extração das datas → `Arquivos/resultado.csv`.**
+   - **Agente externo:** ele mesmo abre e lê cada imagem e grava o CSV (sem nenhum modelo local, sem OCR, sem script de extração).
+   - **Manual (pessoa):** o script `extrair_datas_ia.py` usa o modelo de visão `qwen2.5vl:3b` (via Ollama, tudo local), em até 3 tentativas por foto (imagem completa → recorte do rodapé → imagem maior). Cada data é normalizada para `DD/MM/AAAA HH:MM:SS.mmm`.
+   
+   Fotos sem data legível **não são descartadas**: vão para o final da ordenação.
 3. **Você escolhe cópia ou renomear.**
    - **Cópia:** os originais ficam intactos e as cópias ordenadas vão para `Arquivos\Fotos_Ordenadas`.
    - **Renomear:** os arquivos da própria pasta de origem são renomeados (em 2 fases, via nomes temporários, para não haver colisão).
@@ -56,10 +65,10 @@ pip install -r requisitos.txt
 Abra a pasta do projeto no seu agente (OpenCode, Claude Code, Cursor…). Ele segue o `AGENTS.md`:
 
 1. Pergunta o caminho das fotos
-2. **Ele mesmo lê cada imagem**, transcreve a data do carimbo e grava `Arquivos/resultado.csv`
+2. **Ele mesmo lê cada imagem**, transcreve a data do carimbo e grava `Arquivos/resultado.csv` — **sem usar modelo local** (`extrair_datas_ia.py`, `agente_fotos.py`, Ollama, OCR proibidos para o agente)
 3. Pergunta: **cópia** em `Arquivos\Fotos_Ordenadas` ou **renomear** os originais?
 4. Pergunta a ordem: **mais antiga** ou **mais nova primeiro**?
-5. **Executa `organizar_fotos.py`** e resume
+5. **Executa `organizar_fotos.py`** e resume — o agente **nunca renomeia/copia manualmente** (nada de `os.rename`, `shutil`, `move`/`copy` ou script ad-hoc)
 
 Formato que o agente grava no CSV (`utf-8-sig`):
 
@@ -71,7 +80,7 @@ semdata.jpeg,,,,DATA NÃO ENCONTRADA,texto lido na imagem
 
 Fotos sem data legível ficam com Data/Hora vazios e vão por último — nunca são descartadas.
 
-## Uso com assistente de terminal: agente LLM
+## Uso manual com assistente de terminal: agente LLM (só pessoa, nunca agente externo)
 
 ```bash
 python agente_fotos.py
@@ -91,11 +100,13 @@ Passo a passo do que o agente faz:
 | 4 | Pergunta a ordem: **mais antiga primeiro** ou **mais nova primeiro**? |
 | 5 | Executa e resume (quantidade, destino e ordem usada) |
 
+> **Só uma pessoa no terminal.** Agentes externos são proibidos de usar este script (ver `AGENTS.md`).
+
 O LLM (Ollama local, configurável por `MODELO_TEXTO` ou `--modelo`) gera as falas e interpreta as respostas livres — ele **só decide e conversa**; quem copia/renomeia de fato são os scripts. Se o Ollama estiver fora do ar, o agente segue o mesmo fluxo com regras locais.
 
 ## Os scripts em detalhe
 
-### `extrair_datas_ia.py` — etapa 1 (extração)
+### `extrair_datas_ia.py` — etapa 1 manual (extração via Ollama, só pessoa)
 
 ```bash
 python extrair_datas_ia.py
@@ -115,7 +126,7 @@ image.jpeg,09/09/2026,15:15:52.775,09/09/2026 15:15:52.775,OK,09/09/2026 15:15:5
 semdata.jpeg,,,,DATA NÃO ENCONTRADA,texto lido na imagem
 ```
 
-### `organizar_fotos.py` — etapa 2 (ordenação)
+### `organizar_fotos.py` — etapa 2 (ordenação, único meio permitido de copiar/renomear)
 
 ```bash
 python organizar_fotos.py 1 --origem Arquivos/Fotos --modo copia     # copia, antiga primeiro
@@ -133,7 +144,7 @@ python organizar_fotos.py --help   # todos os flags (--origem, --csv, --modo, --
 - **Modo renomear**: renomeia dentro da própria pasta de origem, em 2 fases (nome temporário → nome final) para evitar colisões quando o destino já existe.
 - **Limpeza automática**: ao concluir (nos dois modos), o CSV volta a ter só o cabeçalho — a próxima leva começa do zero sem trabalho manual (`--manter-csv` desativa isso).
 
-### `agente_fotos.py` — o orquestrador
+### `agente_fotos.py` — o orquestrador manual (só pessoa, nunca agente externo)
 
 Junta as duas etapas num fluxo conversacional. Ferramentas que ele usa (todas reaproveitam os scripts acima, o LLM nunca toca em arquivos diretamente):
 
@@ -141,7 +152,7 @@ Junta as duas etapas num fluxo conversacional. Ferramentas que ele usa (todas re
 - `tool_extrair_datas` → `extrair_datas_ia.processar_pasta`
 - `tool_aplicar_ordenacao` → `organizar_fotos.aplicar_ordenacao`
 
-## Fluxo manual (extração via Ollama, sem agente)
+## Fluxo manual (extração via Ollama, sem agente externo — só pessoa)
 
 ```bash
 python extrair_datas_ia.py

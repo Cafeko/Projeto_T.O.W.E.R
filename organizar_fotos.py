@@ -1,3 +1,13 @@
+"""Etapa 2 (ordenação física) — único meio permitido de copiar/renomear fotos.
+
+- Agente externo: ele mesmo extrai as datas (lendo cada imagem) e grava
+  Arquivos/resultado.csv, depois chama este script. PROIBIDO ao agente
+  renomear/copiar manualmente (os.rename, shutil, move, copy, script ad-hoc)
+  e PROIBIDO usar modelo local (extrair_datas_ia.py, agente_fotos.py, Ollama).
+- Uso manual (pessoa no terminal): pode gerar o CSV com extrair_datas_ia.py
+  e depois chamar este script.
+"""
+
 import csv
 import shutil
 from datetime import datetime
@@ -19,7 +29,9 @@ def carregar_ordem(csv_path: Path | None = None):
     """Le resultado.csv e retorna (com_data, sem_data) ordenada por data_hora."""
     csv_path = Path(csv_path) if csv_path else ARQUIVO_CSV
     if not csv_path.exists():
-        print(f"ERRO: {csv_path} nao encontrado. Rode primeiro extrair_datas_ia.py")
+        print(f"ERRO: {csv_path} nao encontrado. Preencha o CSV antes: "
+              "agente externo le cada imagem e grava o CSV; "
+              "uso manual pode rodar extrair_datas_ia.py.")
         return None
 
     resultados = []
@@ -163,7 +175,8 @@ def main(argv=None):
     import argparse
     ap = argparse.ArgumentParser(
         description="Ordena fotos a partir de Arquivos/resultado.csv "
-                    "(copia para Fotos_Ordenadas ou renomeia na origem).")
+                    "(copia para Fotos_Ordenadas ou renomeia na origem). "
+                    "Unico meio permitido de copiar/renomear — nao renomeie manualmente.")
     ap.add_argument("ordem", nargs="?", default=None,
                     help="1/antiga = mais antiga primeiro; 2/recente = mais nova primeiro "
                          "(omitido = pergunta interativamente)")

@@ -1,3 +1,13 @@
+"""USO MANUAL APENAS (pessoa no terminal).
+
+PROIBIDO para agentes externos (OpenCode, Claude Code, Cursor, etc.):
+agentes externos NÃO devem importar, executar ou reaproveitar este script.
+O agente externo extrai as datas SOZINHO (lendo cada imagem com a própria
+visão) e grava Arquivos/resultado.csv; a ordenação física é sempre via
+organizar_fotos.py. Este script (Ollama local) é só para uma pessoa usar
+manualmente no terminal: `python extrair_datas_ia.py`.
+"""
+
 import base64
 import csv
 import re
