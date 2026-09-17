@@ -41,6 +41,9 @@ python features/fit_fotos/fit_fotos.py --pasta <PASTA_DAS_FOTOS>
 - Exemplo: `python features/fit_fotos/fit_fotos.py --pasta Arquivos/Fotos`
 - Sem `--pasta`, o programa abre na pasta padrão (`Arquivos/Fotos`).
 - Rode a partir da **raiz do projeto**.
+- Caminho com espaços: use aspas (`--pasta "C:\minha pasta\Fotos"`). Para abrir
+  sem console e sem travar o terminal (Windows): `Start-Process pythonw`
+  com o caminho entre aspas embutidas.
 
 ## Regras
 

@@ -391,15 +391,30 @@ class FitFotosApp(tk.Tk):
                                    f"{ok} salvas, {erros} com erro. Veja a barra de status.")
 
 
-def main(argv=None) -> None:
+def extrair_pasta(argv=None) -> str | None:
+    """Extrai o caminho da pasta de argv, tolerando caminho com espaços
+    que chegou quebrado (sem aspas): junta os fragmentos com espaço.
+
+    Ex: --pasta C:\\Minhas Fotos\\X vira "C:\\Minhas Fotos\\X".
+    Flags desconhecidas (--xyz) continuam dando erro."""
     ap = argparse.ArgumentParser(
         description="fit_fotos: veja as fotos, escolha o tamanho (px ou cm) e "
                     "copie p/ o Excel ou salve redimensionadas.")
     ap.add_argument("--pasta", default=None,
                     help="pasta das fotos para já abrir nela "
                          "(absoluta ou relativa à raiz do projeto)")
-    args = ap.parse_args(argv)
-    app = FitFotosApp(pasta_inicial=resolver_pasta(args.pasta))
+    ap.add_argument("fragmentos", nargs="*", help=argparse.SUPPRESS)
+    args, sobras = ap.parse_known_args(argv)
+    estranhos = [s for s in sobras if s.startswith("-")]
+    if estranhos:
+        ap.error(f"argumentos desconhecidos: {' '.join(estranhos)}")
+    partes = ([args.pasta] if args.pasta else []) + (args.fragmentos or []) \
+        + [s for s in sobras if not s.startswith("-")]
+    return " ".join(partes) or None
+
+
+def main(argv=None) -> None:
+    app = FitFotosApp(pasta_inicial=resolver_pasta(extrair_pasta(argv)))
     app.mainloop()
 
 
