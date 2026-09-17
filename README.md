@@ -71,6 +71,8 @@ digite largura x altura em
 **manter proporção** (sem distorcer) ou deixe desmarcado para o tamanho exato.
 Depois **copie** a selecionada (Ctrl+C — pronta para Ctrl+V no Excel) ou
 **salve todas** redimensionadas (padrão: `Arquivos/Fotos_Fit/`).
+Ou **Envie p/ Excel**: insere a foto full-res direto na planilha aberta, já no
+tamanho — nítida como reduzir no Excel, sem arrastar (exige Excel aberto).
 Com **Alta resolução** marcado (padrão), a foto vai com os pixels originais e
 só o tamanho de exibição é ajustado — sem perda de qualidade.
 O programa lembra pasta, tamanho e opções ao reabrir (`~/.fit_fotos.json`).

@@ -287,6 +287,80 @@ def resolver_pasta(texto: str | None) -> Path | None:
     return p
 
 
+PONTO_POR_CM = 28.3464567  # pontos do Excel por cm
+
+
+def _excel_visivel():
+    """Devolve o Excel VISÍVEL em execução (o do usuário). Ignora instâncias
+    invisíveis abandonadas (automação/testes), que confundiriam o envio."""
+    try:
+        import pythoncom
+        import win32com.client
+    except ImportError:
+        return None
+    try:
+        rot = pythoncom.GetRunningObjectTable(0)
+        ctx = pythoncom.CreateBindCtx(0)
+        for moniker in rot.EnumRunning():
+            try:
+                nome = moniker.GetDisplayName(ctx, None)
+            except Exception:
+                continue
+            if "Excel.Application" not in nome:
+                continue
+            try:
+                xl = win32com.client.Dispatch(moniker.BindToObject(ctx, None))
+                if xl.Visible:
+                    return xl
+            except Exception:
+                continue
+    except Exception:
+        pass
+    return None
+
+
+def enviar_para_excel(img: Image.Image, larg_cm: float, alt_cm: float) -> str:
+    """Cola a foto em resolução TOTAL na planilha aberta do Excel e ajusta
+    para o tamanho pedido (onde está o cursor). É o "colar e reduzir" feito
+    sozinho: nítido, com zoom preservado e sem arrastar nada.
+    Exige o Excel aberto com a planilha do relatório."""
+    copiar_para_clipboard(img)  # DIB full-res (sem EMF: o Excel colaria o vetor)
+    try:
+        import win32com.client
+    except ImportError:
+        raise RuntimeError("Falta o pywin32: rode 'pip install -r requisitos.txt'.")
+    xl = _excel_visivel()
+    if xl is None:
+        try:
+            xl = win32com.client.GetActiveObject("Excel.Application")
+        except Exception:
+            raise RuntimeError("Abra o Excel com a planilha do relatório primeiro.")
+    try:
+        ws = xl.ActiveSheet
+        cel = xl.ActiveCell
+        esquerda, topo = cel.Left, cel.Top
+    except Exception:
+        raise RuntimeError("Abra uma planilha no Excel primeiro.")
+    try:
+        ws.Paste()
+    except Exception:
+        raise RuntimeError("Não colou no Excel (tente copiar de novo).")
+    try:
+        forma = xl.Selection.ShapeRange
+    except Exception:
+        forma = ws.Shapes(ws.Shapes.Count)
+    forma.LockAspectRatio = False
+    forma.Width = larg_cm * PONTO_POR_CM
+    forma.Height = alt_cm * PONTO_POR_CM
+    forma.Left = esquerda
+    forma.Top = topo
+    try:
+        nome, aba = forma.Name, ws.Name
+    except Exception:
+        nome, aba = "foto", "planilha"
+    return f"'{nome}' na aba '{aba}'"
+
+
 CONFIG_PATH = Path.home() / ".fit_fotos.json"
 
 
@@ -413,12 +487,15 @@ class FitFotosApp(tk.Tk):
         ttk.Button(saidas, text="Procurar…", command=self.procurar_destino).pack(side="left", padx=2)
         ttk.Button(saidas, text="Copiar selecionada (Ctrl+C)",
                    command=self.copiar_selecionada).pack(side="left", padx=8)
+        ttk.Button(saidas, text="Enviar p/ Excel (Ctrl+E)",
+                   command=self.enviar_selecionada).pack(side="left", padx=2)
         ttk.Button(saidas, text="Salvar todas",
                    command=self.salvar_todas).pack(side="left", padx=2)
 
         ttk.Label(self, textvariable=self.status_var, relief="sunken",
                   anchor="w").pack(fill="x", side="bottom")
         self.bind("<Control-c>", lambda e: self.copiar_selecionada())
+        self.bind("<Control-e>", lambda e: self.enviar_selecionada())
         self.bind("<Left>", lambda e: self.mover_foto(-1, e))
         self.bind("<Right>", lambda e: self.mover_foto(1, e))
 
@@ -629,6 +706,24 @@ class FitFotosApp(tk.Tk):
         except Exception as e:
             messagebox.showerror("Erro ao copiar", str(e))
             return
+
+    def enviar_selecionada(self):
+        if self.img_original is None:
+            messagebox.showinfo("Nada a enviar", "Carregue uma pasta e selecione uma foto.")
+            return
+        pedido = self.ler_pedido()
+        if pedido is None:
+            return
+        larg, alt, unidade, dpi_base = pedido
+        lw, lh = pedido_para_cm(larg, alt, unidade, dpi_base)
+        _dpi, (dw, dh) = calcular_dpi(*self.img_original.size, lw, lh,
+                                      self.proporcao_var.get())
+        try:
+            onde = enviar_para_excel(self.img_original, dw, dh)
+        except Exception as e:
+            messagebox.showerror("Erro ao enviar", str(e))
+            return
+        self.status(f"{self.img_nome} inserida no Excel ({dw:.1f}x{dh:.1f} cm) em {onde}.")
 
     def salvar_todas(self):
         if not self.fotos:

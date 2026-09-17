@@ -1,5 +1,7 @@
 # Dependências Python do Projeto T.O.W.E.R
 # - ordenar-fotos (features/ordenar_fotos/organizar_fotos.py): só stdlib.
 # - fit_fotos (features/fit_fotos/fit_fotos.py): precisa de pillow
-#   (redimensionamento + miniaturas; tkinter já vem com o Python no Windows).
+#   (redimensionamento + miniaturas; tkinter já vem com o Python no Windows)
+#   e de pywin32 (botão "Enviar p/ Excel"; só Windows).
 pillow==12.3.0
+pywin32==312

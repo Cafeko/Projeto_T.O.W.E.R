@@ -29,7 +29,8 @@ features/fit_fotos/
 2. **Abra o programa já na pasta** — rode o comando abaixo com a pasta
    informada e avise que a janela abriu.
 3. **Explique em 2 frases**: na janela a pessoa navega com ← →, escolhe o
-   tamanho (px ou cm), marca manter-proporção ou não, e copia (Ctrl+C / botão) ou salva todas.
+   tamanho (px ou cm), marca manter-proporção ou não, e copia (Ctrl+C), salva
+   todas ou envia direto p/ o Excel aberto (Ctrl+E — nítido, já no tamanho).
 4. **Encerre** — não há CSV nem etapa posterior; seu trabalho acaba ao abrir.
 
 ## Comando (você só chama — a pessoa opera a janela)
