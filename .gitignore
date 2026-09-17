@@ -1,2 +1,4 @@
 /Arquivos/Fotos
 /Arquivos/Fotos_Ordenadas
+__pycache__/
+*.py[cod]
