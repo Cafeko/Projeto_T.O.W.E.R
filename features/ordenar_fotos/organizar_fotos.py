@@ -1,11 +1,11 @@
-"""Etapa 2 (ordenação física) — único meio permitido de copiar/renomear fotos.
+"""Ordenação física de fotos — único meio permitido de copiar/renomear.
 
-- Agente externo: ele mesmo extrai as datas (lendo cada imagem) e grava
-  Arquivos/resultado.csv, depois chama este script. PROIBIDO ao agente
-  renomear/copiar manualmente (os.rename, shutil, move, copy, script ad-hoc)
-  e PROIBIDO usar modelo local (extrair_datas_ia.py, agente_fotos.py, Ollama).
-- Uso manual (pessoa no terminal): pode gerar o CSV com extrair_datas_ia.py
-  e depois chamar este script.
+- Agente externo: ele mesmo extrai as datas (lendo cada imagem com a
+  própria visão) e grava Arquivos/resultado.csv, depois chama este script.
+  PROIBIDO ao agente renomear/copiar manualmente (os.rename, shutil,
+  move, copy, script ad-hoc).
+- Rode a partir da RAIZ do projeto; caminhos relativos se resolvem
+  contra a raiz (ex: python features/ordenar_fotos/organizar_fotos.py ...).
 """
 
 import csv
@@ -29,9 +29,8 @@ def carregar_ordem(csv_path: Path | None = None):
     """Le resultado.csv e retorna (com_data, sem_data) ordenada por data_hora."""
     csv_path = Path(csv_path) if csv_path else ARQUIVO_CSV
     if not csv_path.exists():
-        print(f"ERRO: {csv_path} nao encontrado. Preencha o CSV antes: "
-              "agente externo le cada imagem e grava o CSV; "
-              "uso manual pode rodar extrair_datas_ia.py.")
+        print(f"ERRO: {csv_path} nao encontrado. O agente externo deve ler "
+              "cada imagem e gravar o CSV antes de chamar este script.")
         return None
 
     resultados = []

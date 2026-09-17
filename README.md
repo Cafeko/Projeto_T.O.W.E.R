@@ -1,76 +1,50 @@
-# Telecom - Ordenador de Fotos por Data
+# Projeto T.O.W.E.R
 
-Organiza fotos pela **data/hora do carimbo visível na imagem** (ex: `quarta-feira, 9 de setembro de 2026 17:58:53`). Útil para gerar relatórios de atividades de Telecom com as fotos em ordem cronológica.
+Projeto multi-funcionalidades operado por **agente externo** (OpenCode, Claude Code, Cursor…).
+Cada funcionalidade mora na sua própria pasta em `features/` e o agente segue o `AGENTS.md` dela.
 
-Pipeline: **extrair as datas → `Arquivos/resultado.csv` → cópia ou renomeação ordenada (`Foto (1)`, `Foto (2)`, …)**.
+## Funcionalidades
 
-Há **duas formas de usar**, que terminam no mesmo lugar:
+| Funcionalidade | Pasta | Docs do agente |
+|----------------|-------|----------------|
+| Ordenar fotos | `features/ordenar_fotos/` | [`features/ordenar_fotos/AGENTS.md`](features/ordenar_fotos/AGENTS.md) |
 
-| Forma | Quem extrai as datas | Quem executa a ordenação |
-|-------|---------------------|--------------------------|
-| **Agente externo** (OpenCode, Claude Code, Cursor…) — ver `AGENTS.md` | O próprio agente: lê cada imagem com a própria visão e grava o CSV. **PROIBIDO usar modelo local** (`extrair_datas_ia.py`, `agente_fotos.py`, Ollama, OCR) e **PROIBIDO renomear/copiar manualmente** | O script `organizar_fotos.py` (chamado pelo agente — único meio permitido de copiar/renomear) |
-| **Manual por pessoa no terminal** (`agente_fotos.py` / `extrair_datas_ia.py`) | Pessoa executa o script com IA local de visão (Ollama `qwen2.5vl:3b`) | O script `organizar_fotos.py` |
-
-> **Regra importante:** modelo local ou qualquer outro modelo via código
-> (`extrair_datas_ia.py`, `agente_fotos.py`, Ollama, `pytesseract`, etc.)
-> é **só manual, por uma pessoa no terminal**. Agente externo nunca usa isso:
-> ele mesmo extrai as datas e só usa `organizar_fotos.py` para copiar/renomear.
-
-## Como funciona (visão geral)
-
-1. **Você aponta a pasta com as fotos.** Pode ser `Arquivos/Fotos` ou qualquer outra pasta (caminho absoluto ou relativo à raiz do projeto).
-2. **Extração das datas → `Arquivos/resultado.csv`.**
-   - **Agente externo:** ele mesmo abre e lê cada imagem e grava o CSV (sem nenhum modelo local, sem OCR, sem script de extração).
-   - **Manual (pessoa):** o script `extrair_datas_ia.py` usa o modelo de visão `qwen2.5vl:3b` (via Ollama, tudo local), em até 3 tentativas por foto (imagem completa → recorte do rodapé → imagem maior). Cada data é normalizada para `DD/MM/AAAA HH:MM:SS.mmm`.
-   
-   Fotos sem data legível **não são descartadas**: vão para o final da ordenação.
-3. **Você escolhe cópia ou renomear.**
-   - **Cópia:** os originais ficam intactos e as cópias ordenadas vão para `Arquivos\Fotos_Ordenadas`.
-   - **Renomear:** os arquivos da própria pasta de origem são renomeados (em 2 fases, via nomes temporários, para não haver colisão).
-4. **Você escolhe a ordem:** mais antiga primeiro (`Foto (1)` = mais antiga) ou mais nova primeiro (`Foto (1)` = mais recente).
-5. **Pronto:** arquivos `Foto (1).ext`, `Foto (2).ext`, … (a extensão original de cada foto é mantida).
+Organiza fotos pela **data/hora do carimbo visível na imagem** (ex: `quarta-feira, 9 de setembro de 2026 17:58:53`).
+Pipeline: **agente lê as imagens → `Arquivos/resultado.csv` → cópia ou renomeação ordenada** (`Foto (1)`, `Foto (2)`, …).
 
 ## Estrutura
 
 ```
 Projeto_T.O.W.E.R/
-├── agente_fotos.py       # fluxo conversacional completo com LLM ← use este
-├── extrair_datas_ia.py   # etapa 1: extrai datas das fotos -> Arquivos/resultado.csv
-├── organizar_fotos.py    # etapa 2: aplica a ordenação (copia ou renomeia)
-├── AGENTS.md             # instruções para agentes externos (OpenCode, Claude Code, etc.)
-├── requisitos.txt        # pillow, requests (+ resto do ambiente)
-├── Arquivos/
-│   ├── Fotos/            # ENTRADA - coloque as fotos aqui (ignorado pelo git)
-│   ├── Fotos_Ordenadas/  # SAÍDA da cópia (ignorado pelo git)
-│   └── resultado.csv     # intermediário: Arquivo,Data,Hora,Data/Hora,Status,Texto IA
+├── AGENTS.md                   # roteador do agente (comece aqui)
+├── README.md                   # esta visão geral
+├── requisitos.txt              # dependências (só stdlib no momento)
+├── Arquivos/                   # dados compartilhados na raiz
+│   ├── Fotos/                  # ENTRADA - coloque as fotos aqui (ignorado pelo git)
+│   ├── Fotos_Ordenadas/        # SAÍDA da cópia (ignorado pelo git)
+│   └── resultado.csv           # intermediário: Arquivo,Data,Hora,Data/Hora,Status,Texto IA
+└── features/
+    └── ordenar_fotos/          # funcionalidade 1
+        ├── AGENTS.md           # fluxo exato do agente
+        └── organizar_fotos.py  # único meio permitido de copiar/renomear
 ```
 
-## Requisitos
+## Uso (agente externo)
 
-- Python 3.10+
-- Ollama rodando + modelo de visão `qwen2.5vl:3b` (~3,2 GB). Para a conversa do agente, `qwen2.5:3b` (ou o próprio `qwen2.5vl:3b` como fallback).
+1. Abra a pasta do projeto no seu agente. Ele lê o `AGENTS.md` da raiz e depois o da funcionalidade.
+2. O agente **lê cada imagem com a própria visão**, grava `Arquivos/resultado.csv` e executa o script da feature.
+3. O agente **nunca renomeia/copia manualmente** — só via script oficial.
+
+Comandos da funcionalidade ordenar-fotos (a partir da **raiz**):
 
 ```bash
-# 1. Ollama - https://ollama.com/download
-ollama pull qwen2.5vl:3b
-ollama pull qwen2.5:3b    # opcional, para a conversa do agente
-ollama serve              # deixar rodando
-
-# 2. Dependências Python
-pip install -r requisitos.txt
+python features/ordenar_fotos/organizar_fotos.py 1 --origem Arquivos/Fotos --modo copia     # antiga primeiro
+python features/ordenar_fotos/organizar_fotos.py 2 --origem Arquivos/Fotos --modo copia     # nova primeiro
+python features/ordenar_fotos/organizar_fotos.py 1 --origem Arquivos/Fotos --modo renomear  # renomeia, antiga primeiro
+python features/ordenar_fotos/organizar_fotos.py --help
 ```
 
-## Uso com agente externo (principal)
-
-Abra a pasta do projeto no seu agente (OpenCode, Claude Code, Cursor…). Ele segue o `AGENTS.md`:
-
-1. Pergunta o caminho das fotos
-2. **Ele mesmo lê cada imagem**, transcreve a data do carimbo e grava `Arquivos/resultado.csv` — **sem usar modelo local** (`extrair_datas_ia.py`, `agente_fotos.py`, Ollama, OCR proibidos para o agente)
-3. Pergunta: **cópia** em `Arquivos\Fotos_Ordenadas` ou **renomear** os originais?
-4. Pergunta a ordem: **mais antiga** ou **mais nova primeiro**?
-5. **Executa `organizar_fotos.py`** e resume — o agente **nunca renomeia/copia manualmente** (nada de `os.rename`, `shutil`, `move`/`copy` ou script ad-hoc)
-
-Formato que o agente grava no CSV (`utf-8-sig`):
+Formato do CSV (`utf-8-sig`):
 
 ```
 Arquivo,Data,Hora,Data/Hora,Status,Texto IA
@@ -79,90 +53,14 @@ semdata.jpeg,,,,DATA NÃO ENCONTRADA,texto lido na imagem
 ```
 
 Fotos sem data legível ficam com Data/Hora vazios e vão por último — nunca são descartadas.
+Ao concluir, o script limpa o CSV (só cabeçalho); `--manter-csv` desativa isso.
 
-## Uso manual com assistente de terminal: agente LLM (só pessoa, nunca agente externo)
+## Requisitos
 
-```bash
-python agente_fotos.py
-python agente_fotos.py --pasta Arquivos/fotos
-python agente_fotos.py --sem-llm         # mesmo fluxo, sem LLM (regras locais)
-python agente_fotos.py --modelo qwen2.5:3b
-```
-
-Passo a passo do que o agente faz:
-
-| Passo | O que acontece |
-|-------|----------------|
-| 0 | Inspeciona a pasta do projeto (estrutura, `Arquivos/`, fotos na pasta padrão, se já existe `resultado.csv`) e mostra o resumo |
-| 1 | Pergunta o caminho das fotos (Enter = `Arquivos/fotos`). Se o caminho for inválido ou vazio, sugere pastas a partir do que viu no projeto |
-| 2 | Extrai as datas com a IA de visão (mesmo pipeline de `extrair_datas_ia.py`) |
-| 3 | Pergunta: **criar cópia** em `Arquivos\Fotos_Ordenadas` **ou renomear** os originais? Aceita linguagem natural ("cria copia", "renomeia ai") |
-| 4 | Pergunta a ordem: **mais antiga primeiro** ou **mais nova primeiro**? |
-| 5 | Executa e resume (quantidade, destino e ordem usada) |
-
-> **Só uma pessoa no terminal.** Agentes externos são proibidos de usar este script (ver `AGENTS.md`).
-
-O LLM (Ollama local, configurável por `MODELO_TEXTO` ou `--modelo`) gera as falas e interpreta as respostas livres — ele **só decide e conversa**; quem copia/renomeia de fato são os scripts. Se o Ollama estiver fora do ar, o agente segue o mesmo fluxo com regras locais.
-
-## Os scripts em detalhe
-
-### `extrair_datas_ia.py` — etapa 1 manual (extração via Ollama, só pessoa)
-
-```bash
-python extrair_datas_ia.py
-# ou como função: extrair_datas_ia.processar_pasta(pasta, csv_saida)
-```
-
-- Lê `Arquivos/Fotos` (`jpg`/`jpeg`/`png`/`webp`/`bmp`/`tif`) — aceita qualquer ano e formato de carimbo (`DD/MM/AAAA`, `AAAA-MM-DD`, `9 de setembro de 2024`, `September 9, 2024`, com ou sem hora/milissegundos, em PT ou EN).
-- Para cada foto, consulta o Ollama em `http://localhost:11434/api/generate`, em até 3 tentativas (896 px completa → recorte dos 30% inferiores a 1000 px → 1100 px completa), com retry e pausas para não sobrecarregar em lotes grandes.
-- `parse_data()` normaliza tudo para `DD/MM/AAAA HH:MM:SS.mmm` e limpa sujeira que a IA às vezes inclui (coordenadas GPS, endereços).
-- Mostra progresso (`1/150 - foto.jpg -> 09/09/2026 17:58:59.801 OK`), salva `Arquivos/resultado.csv` já ordenado (antiga → recente) e descarrega o modelo da memória ao final (`keep_alive: 0`).
-
-Exemplo de `resultado.csv`:
-
-```
-Arquivo,Data,Hora,Data/Hora,Status,Texto IA
-image.jpeg,09/09/2026,15:15:52.775,09/09/2026 15:15:52.775,OK,09/09/2026 15:15:52.775
-semdata.jpeg,,,,DATA NÃO ENCONTRADA,texto lido na imagem
-```
-
-### `organizar_fotos.py` — etapa 2 (ordenação, único meio permitido de copiar/renomear)
-
-```bash
-python organizar_fotos.py 1 --origem Arquivos/Fotos --modo copia     # copia, antiga primeiro
-python organizar_fotos.py 2 --origem Arquivos/Fotos --modo copia     # copia, nova primeiro
-python organizar_fotos.py 1 --origem Arquivos/Fotos --modo renomear  # renomeia, antiga primeiro
-python organizar_fotos.py 2 --origem Arquivos/Fotos --modo renomear  # renomeia, nova primeiro
-python organizar_fotos.py --help   # todos os flags (--origem, --csv, --modo, --destino)
-# ou como função:
-# organizar_fotos.aplicar_ordenacao(ordem, pasta_origem, pasta_destino, csv_path, modo)
-#   ordem: "1" (antiga) | "2" (nova) — modo: "copia" | "renomear"
-```
-
-- Lê o `resultado.csv` e ordena por data/hora. **Fotos sem data vão por último**, mantendo a ordem original entre elas.
-- **Modo cópia** (padrão): limpa `Arquivos/Fotos_Ordenadas` e copia com `shutil.copy2` como `Foto (1).ext` … `Foto (n).ext`, mantendo a extensão original de cada foto.
-- **Modo renomear**: renomeia dentro da própria pasta de origem, em 2 fases (nome temporário → nome final) para evitar colisões quando o destino já existe.
-- **Limpeza automática**: ao concluir (nos dois modos), o CSV volta a ter só o cabeçalho — a próxima leva começa do zero sem trabalho manual (`--manter-csv` desativa isso).
-
-### `agente_fotos.py` — o orquestrador manual (só pessoa, nunca agente externo)
-
-Junta as duas etapas num fluxo conversacional. Ferramentas que ele usa (todas reaproveitam os scripts acima, o LLM nunca toca em arquivos diretamente):
-
-- `tool_resumo_projeto` / `tool_listar_diretorio` — enxerga a pasta do projeto
-- `tool_extrair_datas` → `extrair_datas_ia.processar_pasta`
-- `tool_aplicar_ordenacao` → `organizar_fotos.aplicar_ordenacao`
-
-## Fluxo manual (extração via Ollama, sem agente externo — só pessoa)
-
-```bash
-python extrair_datas_ia.py
-python organizar_fotos.py 1 --modo copia
-```
+- Python 3.10+
+- `pip install -r requisitos.txt` (hoje: só biblioteca padrão — nada a instalar)
 
 ## Notas
 
 - Rode os scripts a partir da **raiz do projeto**; caminhos relativos se resolvem contra a raiz.
-- O modelo é descarregado da RAM automaticamente ao final (`ollama ps` fica vazio). Se interromper com Ctrl+C, libere manual: `ollama stop qwen2.5vl:3b`.
-- Para trocar o modelo de visão: `ollama pull llava:7b` e altere `MODELO_IA` em `extrair_datas_ia.py`. O modelo de conversa se troca via `--modelo` ou variável `MODELO_TEXTO`.
 - `Arquivos/Fotos/` e `Arquivos/Fotos_Ordenadas/` são ignorados pelo git — nunca commite fotos.
-- Código próprio é MIT/domínio público. Bibliotecas (Pillow/MIT, requests/Apache 2.0, Ollama/MIT, Qwen/Apache 2.0) são livres para uso comercial com aviso de licença.

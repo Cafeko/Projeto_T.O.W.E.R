@@ -1,80 +1,45 @@
-# AGENTS.md — Ordenador de Fotos (Projeto T.O.W.E.R)
+# AGENTS.md — Projeto T.O.W.E.R
 
-> Instruções para qualquer agente externo operando nesta pasta.
+> Instruções para qualquer agente externo operando neste projeto.
 > Idioma do usuário: português. Responda em português, de forma curta e direta.
 >
 > **Modelo de atuação: VOCÊ é o agente.**
-> **PROIBIDO usar modelo local ou qualquer outro modelo via código:**
-> não use `extrair_datas_ia.py`, `agente_fotos.py`, Ollama (`localhost:11434`,
-> `qwen2.5vl`, `llava`, etc.), `pytesseract`/OCR, `requests` para IA, nem
-> `subprocess` para chamar modelos. Esses arquivos/scripts são de
-> **USO MANUAL, só uma pessoa no terminal** — não fazem parte do seu fluxo.
-> **VOCÊ mesmo abre e lê cada imagem** (sua visão) e grava a tabela;
-> o script `organizar_fotos.py` só entra no final, para executar a
-> cópia/renomeação. **Nunca renomeie/copie foto por conta própria**
+> **VOCÊ mesmo abre e lê cada imagem** (sua visão) quando a funcionalidade pedir;
+> a ordenação/cópia física é **sempre** via script da funcionalidade.
+> **Nunca renomeie/copie arquivos por conta própria**
 > (nada de `os.rename`, `shutil`, `move`, `copy` ou script ad-hoc).
 
-## O que é este projeto
-
-Organiza fotos pela **data/hora do carimbo visível na imagem** (ex: `9 de setembro de 2026 17:58:53`).
+## Estrutura (multi-funcionalidades)
 
 ```
-Arquivos/
-  Fotos/              # ENTRADA típica (gitignored - nunca commitar fotos)
-  Fotos_Ordenadas/    # SAÍDA da cópia: Foto (1).ext ... Foto (n).ext (gitignored)
-  resultado.csv       # TABELA que VOCÊ preenche: Arquivo,Data,Hora,Data/Hora,Status,Texto IA
+Projeto_T.O.W.E.R/
+  AGENTS.md                    # este roteador (você está aqui)
+  README.md                    # visão geral do projeto
+  requisitos.txt               # dependências Python
+  Arquivos/                    # dados compartilhados na raiz
+    Fotos/                     # ENTRADA típica (gitignored)
+    Fotos_Ordenadas/           # SAÍDA da cópia (gitignored)
+    resultado.csv              # tabela intermediária (cada feature documenta o formato)
+  features/
+    ordenar_fotos/             # funcionalidade 1
+      AGENTS.md                # instruções ESPECÍFICAS — siga esse arquivo ao executar
+      organizar_fotos.py       # script da funcionalidade
 ```
 
-## Fluxo obrigatório com o usuário
+## Funcionalidades disponíveis
 
-Sempre nesta ordem, perguntando antes de agir:
+| Funcionalidade | Pasta | Instruções | O que faz |
+|----------------|-------|------------|-----------|
+| Ordenar fotos | `features/ordenar_fotos/` | [`features/ordenar_fotos/AGENTS.md`](features/ordenar_fotos/AGENTS.md) | Organiza fotos pela data/hora do carimbo visível na imagem |
 
-1. **Caminho das fotos** — aceite absoluto ou relativo à raiz do projeto. Enter = `Arquivos/fotos`. Se inválido/vazio, liste a pasta do projeto e `Arquivos/` para sugerir.
-2. **Extrair datas (VOCÊ faz)** — abra e leia **cada imagem** (o carimbo fica em geral no rodapé), transcreva a data/hora e **grave `Arquivos/resultado.csv`** no formato exato abaixo. Não prossiga se não houver fotos. Não use `agente_fotos.py`, `extrair_datas_ia.py`, Ollama, OCR ou qualquer modelo via código aqui.
-3. **Cópia ou renomear?** — `1` = criar cópia ordenada em `Arquivos\Fotos_Ordenadas`; `2` = renomear os originais na própria pasta. Aceite linguagem natural ("cria copia", "renomeia ai").
-4. **Ordem** — `1` = mais antiga primeiro (`Foto (1)` = mais antiga); `2` = mais nova primeiro.
-5. **Executar via script e resumir** — rode `organizar_fotos.py` com os flags correspondentes (ver Comandos) e informe quantidade, destino e ordem usada. O script **limpa o CSV sozinho** ao concluir (só cabeçalho) — você não precisa mexer na tabela depois.
+## Como atuar
 
-## Como ler as datas das imagens
+1. Descubra qual funcionalidade o usuário quer (se ambíguo, pergunte).
+2. Abra e siga o `AGENTS.md` **daquela funcionalidade** — ele tem o fluxo, o formato de dados e os comandos exatos.
+3. Rode os scripts sempre a partir da **raiz do projeto**; caminhos relativos se resolvem contra a raiz.
+4. Para adicionar uma nova funcionalidade: crie `features/<nome>/` com seu script + seu `AGENTS.md` próprio, e registre a linha na tabela acima.
 
-- Formatos possíveis: `DD/MM/AAAA HH:MM:SS`, `AAAA-MM-DD HH:MM`, `9 de setembro de 2026 17:58:53`, `September 9, 2026 15:15:55`, com ou sem milissegundos. Vale qualquer ano, mes e dia.
-- Ignore coordenadas GPS, endereços e outros textos — só a data/hora interessa.
-- Se a foto **não tiver data legível**: deixe Data/Hora vazios, Status = `DATA NÃO ENCONTRADA`. Ela vai por último na ordenação — **nunca descarte fotos**.
+## Regras globais
 
-## Formato exato de `Arquivos/resultado.csv`
-
-- Encoding **`utf-8-sig`**, cabeçalho obrigatório, uma linha por foto:
-
-```
-Arquivo,Data,Hora,Data/Hora,Status,Texto IA
-image.jpeg,09/09/2026,15:15:52.775,09/09/2026 15:15:52.775,OK,09/09/2026 15:15:52.775
-semdata.jpeg,,,,DATA NÃO ENCONTRADA,texto lido na imagem
-```
-
-- `Arquivo` = nome do arquivo **exato** (como está na pasta de origem).
-- `Data` = `DD/MM/AAAA`; `Hora` = `HH:MM:SS.mmm`; `Data/Hora` = os dois juntos.
-- `Status` = `OK` (achou data) ou `DATA NÃO ENCONTRADA`.
-- `Texto IA` = a data normalizada (se OK) ou o texto lido (se sem data).
-
-## Regras
-
-- **Nunca renomear/copiar fotos manualmente** (nada de `os.rename`, `shutil` ou scripts ad-hoc): a ordenação física é **sempre** via `organizar_fotos.py`.
-- **A extração das datas é SUA tarefa** (ler imagens + gravar CSV). Os scripts de extração com Ollama (`extrair_datas_ia.py`) e o assistente de terminal (`agente_fotos.py`) **não fazem parte deste fluxo** — não os chame.
-- **PROIBIDO modelo local via código:** nada de Ollama/`localhost:11434`, `qwen2.5vl`/`llava`, `pytesseract`/OCR, `requests` para IA ou `subprocess` chamando modelo. Modelo local/outro modelo via código é **só manual, por uma pessoa no terminal**.
-- **Execução**: rode o script a partir da **raiz do projeto**; caminhos relativos se resolvem contra a raiz.
 - **Git**: `Arquivos/Fotos/` e `Arquivos/Fotos_Ordenadas/` são gitignored — não force commit de fotos. Commits só sob pedido explícito.
-
-## Comandos (etapa 5 — o script executa, você só chama)
-
-```bash
-# COPIA ordenada p/ Arquivos/Fotos_Ordenadas (originais intactos)
-python organizar_fotos.py 1 --origem <PASTA_DAS_FOTOS> --modo copia
-python organizar_fotos.py 2 --origem <PASTA_DAS_FOTOS> --modo copia
-
-# RENOMEAR os originais na propria pasta
-python organizar_fotos.py 1 --origem <PASTA_DAS_FOTOS> --modo renomear
-python organizar_fotos.py 2 --origem <PASTA_DAS_FOTOS> --modo renomear
-```
-
-- `1` = mais antiga primeiro, `2` = mais nova primeiro. `--csv` e `--destino` só se precisar sair do padrão.
-- Exemplo completo: `python organizar_fotos.py 1 --origem Arquivos/Fotos --modo copia`
+- Não crie scripts ad-hoc de cópia/renomeação: cada funcionalidade tem seu script oficial.
