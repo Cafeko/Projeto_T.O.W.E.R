@@ -469,9 +469,7 @@ class FitFotosApp(tk.Tk):
         p = filedialog.askdirectory(title="Pasta com as fotos")
         if p:
             self.pasta_var.set(p)
-            self.ultima_pasta = p
-            self._salvar_config()
-            self.status("Pasta escolhida — pressione Carregar para listar.")
+            self.carregar_pasta()
 
     def procurar_destino(self):
         p = filedialog.askdirectory(title="Pasta de saída")
