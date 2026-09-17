@@ -20,6 +20,7 @@ import argparse
 import ctypes
 import io
 import os
+import re
 import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
@@ -51,13 +52,26 @@ def converter_tamanho(larg: float, alt: float, unidade: str,
     return max(1, int(larg)), max(1, int(alt))
 
 
+def chave_natural(nome: str) -> list:
+    """Chave de ordenação natural: números valem pelo valor, não pela letra.
+
+    Detecta qualquer numeração no nome — 'Foto (2)' < 'Foto (10)',
+    'foto2.jpg' < 'foto10.jpg', '02 - x.jpg' < '10 - x.jpg' — sem precisar
+    configurar formato.
+    """
+    return [int(p) if p.isdigit() else p
+            for p in re.split(r"(\d+)", nome.lower())]
+
+
 def listar_fotos(pasta: Path) -> list[Path]:
-    """Retorna as imagens da pasta, ordenadas por nome."""
+    """Retorna as imagens da pasta em ordem natural (Foto (2) antes de
+    Foto (10), independente do formato da numeração)."""
     pasta = Path(pasta)
     if not pasta.is_dir():
         return []
-    return sorted(p for p in pasta.iterdir()
-                  if p.is_file() and p.suffix.lower() in EXTENSOES)
+    return sorted((p for p in pasta.iterdir()
+                   if p.is_file() and p.suffix.lower() in EXTENSOES),
+                  key=lambda p: chave_natural(p.name))
 
 
 def redimensionar(img: Image.Image, larg_px: int, alt_px: int,
