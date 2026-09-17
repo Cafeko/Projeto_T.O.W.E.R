@@ -21,6 +21,7 @@ import ctypes
 import io
 import os
 import re
+import struct
 import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
@@ -50,6 +51,27 @@ def converter_tamanho(larg: float, alt: float, unidade: str,
     if unidade == "cm":
         return cm_para_px(larg, dpi), cm_para_px(alt, dpi)
     return max(1, int(larg)), max(1, int(alt))
+
+
+def pedido_para_cm(larg: float, alt: float, unidade: str,
+                   dpi: int = DPI_PADRAO) -> tuple[float, float]:
+    """Tamanho pedido -> (larg_cm, alt_cm) para exibição."""
+    if unidade == "cm":
+        return larg, alt
+    return larg / dpi * 2.54, alt / dpi * 2.54
+
+
+def calcular_dpi(larg_px: int, alt_px: int, larg_cm: float, alt_cm: float,
+                 manter_proporcao: bool = True):
+    """DPI que faz a imagem original (larg_px x alt_px) ser EXIBIDA no
+    tamanho pedido, sem cortar nenhum pixel. Retorna ((dpi_x, dpi_y),
+    (exibe_larg_cm, exibe_alt_cm)). Com proporção o DPI é uniforme."""
+    if manter_proporcao:
+        f = min(larg_cm / larg_px, alt_cm / alt_px)
+        dw, dh = larg_px * f, alt_px * f
+    else:
+        dw, dh = larg_cm, alt_cm
+    return (larg_px / dw * 2.54, alt_px / dh * 2.54), (dw, dh)
 
 
 def chave_natural(nome: str) -> list:
@@ -85,19 +107,113 @@ def redimensionar(img: Image.Image, larg_px: int, alt_px: int,
     return img.resize((larg_px, alt_px), Image.LANCZOS)
 
 
-def copiar_para_clipboard(img: Image.Image) -> None:
-    """Copia a imagem para a area de transferencia (Windows, CF_DIB) —
-    pronta para colar no Excel com Ctrl+V."""
-    if os.name != "nt":
-        raise RuntimeError("Copiar p/ clipboard so funciona no Windows.")
+def imagem_para_dib(img: Image.Image, dpi: tuple[float, float] | None = None) -> bytes:
+    """Imagem -> bytes DIB prontos p/ o clipboard. Com dpi=(dx, dy), grava
+    pixels-por-metro no cabeçalho para o Excel exibir no tamanho certo."""
     buf = io.BytesIO()
     img.convert("RGB").save(buf, "BMP")
-    dados = buf.getvalue()[14:]  # tira o cabecalho BMP, sobra o DIB
+    dados = bytearray(buf.getvalue())
     buf.close()
-    CF_DIB, GMEM_MOVEABLE = 8, 2
+    if dpi is not None:
+        struct.pack_into("<i", dados, 38, int(round(dpi[0] / 0.0254)))
+        struct.pack_into("<i", dados, 42, int(round(dpi[1] / 0.0254)))
+    return bytes(dados[14:])  # tira o cabecalho BMP, sobra o DIB
+
+
+def dpi_fisico_tela() -> tuple[float, float]:
+    """DPI físico real da tela (px/mm do monitor). Diferente do lógico 96:
+    é ele que o Excel usa para dimensionar o EMF (telas ~101dpi a 100%)."""
+    from ctypes import wintypes
+    user32 = ctypes.windll.user32
+    gdi32 = ctypes.windll.gdi32
+    user32.GetDC.restype = wintypes.HDC
+    user32.GetDC.argtypes = [wintypes.HWND]
+    user32.ReleaseDC.argtypes = [wintypes.HWND, wintypes.HDC]
+    gdi32.GetDeviceCaps.restype = ctypes.c_int
+    gdi32.GetDeviceCaps.argtypes = [wintypes.HDC, ctypes.c_int]
+    hdc = user32.GetDC(None)
+    try:
+        hr, vr = gdi32.GetDeviceCaps(hdc, 8), gdi32.GetDeviceCaps(hdc, 10)
+        hs, vs = gdi32.GetDeviceCaps(hdc, 4), gdi32.GetDeviceCaps(hdc, 6)
+    finally:
+        user32.ReleaseDC(None, hdc)
+    if hr <= 0 or vr <= 0 or hs <= 0 or vs <= 0:
+        return (96.0, 96.0)
+    return (hr / hs * 25.4, vr / vs * 25.4)
+
+
+def criar_emf(img: Image.Image, larg_cm: float, alt_cm: float):
+    """Cria um HANDLE de EMF via GDI: foto em resolução TOTAL num quadro que
+    o Excel exibe EXATAMENTE no tamanho pedido (compensa o DPI físico da
+    tela, que o Excel usa como referência). Dá para ampliar/imprimir sem
+    pixelar.
+
+    Retorna o HANDLE: quem recebe passa ao clipboard (vira dono) ou libera
+    com gdi32.DeleteEnhMetaFile."""
+    from ctypes import wintypes
+    gdi32 = ctypes.windll.gdi32
+    gdi32.CreateEnhMetaFileW.restype = wintypes.HDC
+    gdi32.CreateEnhMetaFileW.argtypes = [wintypes.HDC, wintypes.LPCWSTR,
+                                         ctypes.POINTER(ctypes.c_long),
+                                         wintypes.LPCWSTR]
+    gdi32.StretchDIBits.restype = ctypes.c_int
+    gdi32.StretchDIBits.argtypes = [wintypes.HDC,
+                                    ctypes.c_int, ctypes.c_int,
+                                    ctypes.c_int, ctypes.c_int,
+                                    ctypes.c_int, ctypes.c_int,
+                                    ctypes.c_int, ctypes.c_int,
+                                    ctypes.c_void_p, ctypes.c_void_p,
+                                    wintypes.UINT, wintypes.DWORD]
+    gdi32.CloseEnhMetaFile.restype = wintypes.HANDLE
+    gdi32.CloseEnhMetaFile.argtypes = [wintypes.HDC]
+    gdi32.DeleteEnhMetaFile.restype = wintypes.BOOL
+    gdi32.DeleteEnhMetaFile.argtypes = [wintypes.HANDLE]
+
+    dib = imagem_para_dib(img, None)  # bmi (40) + bits (BGR, de baixo p/ cima)
+    bmi, bits = dib[:40], dib[40:]
+    buf_bmi = ctypes.create_string_buffer(bmi)
+    buf_bits = ctypes.create_string_buffer(bits)
+    W, H = img.size
+    # Destino em px "96dpi" + quadro encolhido por 96/fisico: o conteúdo
+    # preenche o quadro e o Excel exibe no tamanho pedido exato.
+    fdx, fdy = dpi_fisico_tela()
+    dw, dh = int(round(larg_cm / 2.54 * 96)), int(round(alt_cm / 2.54 * 96))
+    fx, fy = int(round(larg_cm * 1000 * 96 / fdx)), int(round(alt_cm * 1000 * 96 / fdy))
+    rect = (ctypes.c_long * 4)(0, 0, fx, fy)
+    hdc = gdi32.CreateEnhMetaFileW(None, None, rect, None)
+    if not hdc:
+        raise RuntimeError("Falha ao criar EMF.")
+    try:
+        n = gdi32.StretchDIBits(hdc, 0, 0, dw, dh, 0, 0, W, H,
+                                buf_bits, buf_bmi, 0, 0x00CC0020)
+        if n <= 0:
+            raise RuntimeError("Falha ao desenhar no EMF.")
+    except Exception:
+        hemf = gdi32.CloseEnhMetaFile(hdc)
+        if hemf:
+            gdi32.DeleteEnhMetaFile(hemf)
+        raise
+    hemf = gdi32.CloseEnhMetaFile(hdc)
+    if not hemf:
+        raise RuntimeError("Falha ao fechar EMF.")
+    return hemf
+
+
+def copiar_para_clipboard(img: Image.Image,
+                           dpi: tuple[float, float] | None = None,
+                           tamanho_emf_cm: tuple[float, float] | None = None) -> None:
+    """Copia a imagem para a area de transferencia (Windows) — pronta para
+    colar no Excel com Ctrl+V. Com tamanho_emf_cm=(larg_cm, alt_cm), cola
+    também um EMF (foto full-res + quadro no tamanho): o Excel exibe no
+    tamanho certo sem cortar pixels; o bitmap vai junto como reserva."""
+    if os.name != "nt":
+        raise RuntimeError("Copiar p/ clipboard so funciona no Windows.")
+    dib = imagem_para_dib(img, dpi)
+    CF_DIB, CF_EMF, GMEM_MOVEABLE = 8, 14, 2
     from ctypes import wintypes
     kernel32 = ctypes.windll.kernel32
     user32 = ctypes.windll.user32
+    gdi32 = ctypes.windll.gdi32
     # Sem restype/argtypes o ctypes trunca ponteiros 64-bit (vira int 32-bit).
     kernel32.GlobalAlloc.restype = wintypes.HGLOBAL
     kernel32.GlobalAlloc.argtypes = [wintypes.UINT, ctypes.c_size_t]
@@ -111,32 +227,53 @@ def copiar_para_clipboard(img: Image.Image) -> None:
     user32.SetClipboardData.restype = wintypes.HANDLE
     user32.SetClipboardData.argtypes = [wintypes.UINT, wintypes.HANDLE]
     user32.CloseClipboard.restype = wintypes.BOOL
-    h_mem = kernel32.GlobalAlloc(GMEM_MOVEABLE, len(dados))
-    if not h_mem:
-        raise RuntimeError("Falha ao alocar memoria do clipboard.")
-    ptr = kernel32.GlobalLock(h_mem)
-    ctypes.memmove(ptr, dados, len(dados))
-    kernel32.GlobalUnlock(h_mem)
+    gdi32.DeleteEnhMetaFile.restype = wintypes.BOOL
+    gdi32.DeleteEnhMetaFile.argtypes = [wintypes.HANDLE]
+
+    def alocar(conteudo: bytes):
+        h_mem = kernel32.GlobalAlloc(GMEM_MOVEABLE, len(conteudo))
+        if not h_mem:
+            raise RuntimeError("Falha ao alocar memoria do clipboard.")
+        ptr = kernel32.GlobalLock(h_mem)
+        ctypes.memmove(ptr, conteudo, len(conteudo))
+        kernel32.GlobalUnlock(h_mem)
+        return h_mem
+
+    # HANDLE do EMF criado pela GDI (não é bloco de memória).
+    hemf = None
+    if tamanho_emf_cm is not None:
+        hemf = criar_emf(img, *tamanho_emf_cm)
     try:
         if not user32.OpenClipboard(None):
             raise RuntimeError("Nao abri o clipboard (feche o Excel e tente de novo).")
         user32.EmptyClipboard()
-        if not user32.SetClipboardData(CF_DIB, h_mem):
+        h_dib = alocar(dib)
+        if not user32.SetClipboardData(CF_DIB, h_dib):
+            kernel32.GlobalFree(h_dib)
             raise RuntimeError("Falha ao copiar para o clipboard.")
-        h_mem = None  # dono agora e o clipboard — nao liberar
+        # dono do h_dib agora é o clipboard — não liberar
+        if hemf:
+            if not user32.SetClipboardData(CF_EMF, hemf):
+                raise RuntimeError("Falha ao copiar EMF para o clipboard.")
+            hemf = None  # dono agora é o clipboard — não deletar
     finally:
         user32.CloseClipboard()
-        if h_mem:
-            kernel32.GlobalFree(h_mem)
+        if hemf:
+            gdi32.DeleteEnhMetaFile(hemf)
 
 
-def salvar_copia(img: Image.Image, destino: Path) -> None:
-    """Salva a imagem redimensionada (converte p/ RGB se o formato pedir)."""
+def salvar_copia(img: Image.Image, destino: Path,
+                 dpi: tuple[float, float] | None = None) -> None:
+    """Salva a imagem. Com dpi (jpg/png/tif), grava a resolução para o
+    Excel exibir no tamanho certo ao inserir, sem cortar pixels."""
     destino = Path(destino)
     destino.parent.mkdir(parents=True, exist_ok=True)
     if destino.suffix.lower() in (".jpg", ".jpeg") and img.mode in ("RGBA", "LA", "P"):
         img = img.convert("RGB")
-    img.save(destino)
+    if dpi is not None and destino.suffix.lower() in (".jpg", ".jpeg", ".png", ".tif", ".tiff"):
+        img.save(destino, dpi=(round(dpi[0]), round(dpi[1])))
+    else:
+        img.save(destino)
 
 
 def resolver_pasta(texto: str | None) -> Path | None:
@@ -178,6 +315,7 @@ class FitFotosApp(tk.Tk):
         self.unidade_var = tk.StringVar(value="cm")
         self.dpi_var = tk.StringVar(value=str(DPI_PADRAO))
         self.proporcao_var = tk.BooleanVar(value=True)
+        self.alta_var = tk.BooleanVar(value=True)
         self.destino_var = tk.StringVar(value=str(PASTA_SAIDA_PADRAO))
         self.info_var = tk.StringVar(value="Escolha a pasta das fotos.")
         self.px_var = tk.StringVar(value="")
@@ -224,10 +362,15 @@ class FitFotosApp(tk.Tk):
         self.dpi_entry = ttk.Entry(ctrl, textvariable=self.dpi_var, width=6)
         self.dpi_entry.grid(row=0, column=7, padx=4)
         ttk.Checkbutton(ctrl, text="Manter proporção (sem distorcer)",
-                        variable=self.proporcao_var).grid(row=1, column=0, columnspan=5,
-                                                          sticky="w", pady=(4, 0))
+                        variable=self.proporcao_var,
+                        command=self.atualizar_px).grid(row=1, column=0, columnspan=5,
+                                                        sticky="w", pady=(4, 0))
         ttk.Label(ctrl, textvariable=self.px_var, foreground="gray").grid(
             row=1, column=5, columnspan=3, sticky="e")
+        ttk.Checkbutton(ctrl, text="Alta resolução (exibe no tamanho sem perder qualidade)",
+                        variable=self.alta_var,
+                        command=self.atualizar_px).grid(row=2, column=0, columnspan=8,
+                                                        sticky="w")
         for v in (self.larg_var, self.alt_var, self.dpi_var):
             v.trace_add("write", lambda *a: self.atualizar_px())
 
@@ -318,26 +461,47 @@ class FitFotosApp(tk.Tk):
 
     # ---------- tamanho ----------
 
-    def ler_tamanho(self) -> tuple[int, int] | None:
+    def ler_pedido(self):
+        """Lê os campos de tamanho. Retorna (larg, alt, unidade, dpi) ou None."""
         try:
             larg = float(self.larg_var.get().replace(",", "."))
             alt = float(self.alt_var.get().replace(",", "."))
-            dpi = int(self.dpi_var.get()) if self.unidade_var.get() == "cm" else DPI_PADRAO
-            if larg <= 0 or alt <= 0 or dpi <= 0:
+            if larg <= 0 or alt <= 0:
+                raise ValueError
+            unidade = self.unidade_var.get()
+            dpi = int(self.dpi_var.get()) if unidade == "cm" else DPI_PADRAO
+            if dpi <= 0:
                 raise ValueError
         except ValueError:
             messagebox.showwarning("Tamanho inválido",
                                    "Digite largura, altura (e DPI) maiores que zero.")
             return None
-        return converter_tamanho(larg, alt, self.unidade_var.get(), dpi)
+        return larg, alt, unidade, dpi
+
+    def ler_tamanho(self) -> tuple[int, int] | None:
+        pedido = self.ler_pedido()
+        if pedido is None:
+            return None
+        larg, alt, unidade, dpi = pedido
+        return converter_tamanho(larg, alt, unidade, dpi)
 
     def atualizar_px(self):
         try:
             larg = float(self.larg_var.get().replace(",", "."))
             alt = float(self.alt_var.get().replace(",", "."))
             dpi = int(self.dpi_var.get())
-            w, h = converter_tamanho(larg, alt, self.unidade_var.get(), dpi)
-            uni = f" (DPI {dpi})" if self.unidade_var.get() == "cm" else ""
+            unidade = self.unidade_var.get()
+            if self.alta_var.get() and self.img_original is not None:
+                ow, oh = self.img_original.size
+                lw, lh = pedido_para_cm(larg, alt, unidade, dpi)
+                (dx, _dy), (dw, dh) = calcular_dpi(ow, oh, lw, lh,
+                                                   self.proporcao_var.get())
+                self.px_var.set(f"= exibe {dw:.1f} x {dh:.1f} cm (DPI {dx:.0f})")
+                self.info_var.set(f"{self.img_nome} — {ow}x{oh} px em alta, "
+                                  f"exibe {dw:.1f}x{dh:.1f} cm")
+                return
+            w, h = converter_tamanho(larg, alt, unidade, dpi)
+            uni = f" (DPI {dpi})" if unidade == "cm" else ""
             self.px_var.set(f"= {w} x {h} px{uni}")
             if self.img_original is not None:
                 ow, oh = self.img_original.size
@@ -354,24 +518,39 @@ class FitFotosApp(tk.Tk):
         if self.img_original is None:
             messagebox.showinfo("Nada a copiar", "Carregue uma pasta e selecione uma foto.")
             return
-        tam = self.ler_tamanho()
-        if tam is None:
+        pedido = self.ler_pedido()
+        if pedido is None:
             return
+        larg, alt, unidade, dpi_base = pedido
         try:
-            final = redimensionar(self.img_original, *tam, self.proporcao_var.get())
-            copiar_para_clipboard(final)
+            if self.alta_var.get():
+                ow, oh = self.img_original.size
+                lw, lh = pedido_para_cm(larg, alt, unidade, dpi_base)
+                (dx, dy), (dw, dh) = calcular_dpi(ow, oh, lw, lh,
+                                                  self.proporcao_var.get())
+                copiar_para_clipboard(
+                    self.img_original, dpi=(dx, dy), tamanho_emf_cm=(dw, dh))
+                self.status(f"{self.img_nome} copiada em alta ({ow}x{oh} px, "
+                            f"exibe {dw:.1f}x{dh:.1f} cm) — cole no Excel com Ctrl+V.")
+            else:
+                w, h = converter_tamanho(larg, alt, unidade, dpi_base)
+                final = redimensionar(self.img_original, w, h,
+                                      self.proporcao_var.get())
+                copiar_para_clipboard(final)
+                self.status(f"{self.img_nome} copiada ({final.size[0]}x{final.size[1]} px) — cole no Excel com Ctrl+V.")
         except Exception as e:
             messagebox.showerror("Erro ao copiar", str(e))
             return
-        self.status(f"{self.img_nome} copiada ({final.size[0]}x{final.size[1]} px) — cole no Excel com Ctrl+V.")
 
     def salvar_todas(self):
         if not self.fotos:
             messagebox.showinfo("Nada a salvar", "Carregue uma pasta com fotos primeiro.")
             return
-        tam = self.ler_tamanho()
-        if tam is None:
+        pedido = self.ler_pedido()
+        if pedido is None:
             return
+        larg, alt, unidade, dpi_base = pedido
+        alta = self.alta_var.get()
         destino = Path(self.destino_var.get().strip())
         if not destino.is_absolute():
             destino = RAIZ_PROJETO / destino
@@ -380,12 +559,21 @@ class FitFotosApp(tk.Tk):
             try:
                 with Image.open(caminho) as img:
                     img.load()
-                    final = redimensionar(img, *tam, self.proporcao_var.get())
-                    salvar_copia(final, destino / caminho.name)
+                    if alta:
+                        lw, lh = pedido_para_cm(larg, alt, unidade, dpi_base)
+                        (dx, dy), _exibe = calcular_dpi(*img.size, lw, lh,
+                                                        self.proporcao_var.get())
+                        salvar_copia(img, destino / caminho.name, dpi=(dx, dy))
+                    else:
+                        w, h = converter_tamanho(larg, alt, unidade, dpi_base)
+                        salvar_copia(redimensionar(img, w, h,
+                                                   self.proporcao_var.get()),
+                                     destino / caminho.name)
                 ok += 1
             except Exception:
                 erros += 1
-        self.status(f"Salvas {ok} fotos em '{destino}'" + (f" ({erros} erros)." if erros else "."))
+        modo = " em alta" if alta else ""
+        self.status(f"Salvas {ok} fotos{modo} em '{destino}'" + (f" ({erros} erros)." if erros else "."))
         if erros:
             messagebox.showwarning("Concluído com erros",
                                    f"{ok} salvas, {erros} com erro. Veja a barra de status.")
