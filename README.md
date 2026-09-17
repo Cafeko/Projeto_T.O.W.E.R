@@ -65,7 +65,8 @@ Ao concluir, o script limpa o CSV (só cabeçalho); `--manter-csv` desativa isso
 python features/fit_fotos/fit_fotos.py --pasta Arquivos/Fotos
 ```
 
-Abre a janela: escolha a pasta, clique na foto, digite largura x altura em
+Abre a janela: escolha a pasta, clique na foto (ou navegue com ← →),
+digite largura x altura em
 **px ou cm** (cm usa o DPI informado, padrão 96 como no Excel), marque
 **manter proporção** (sem distorcer) ou deixe desmarcado para o tamanho exato.
 Depois **copie** a selecionada (Ctrl+C — pronta para Ctrl+V no Excel) ou

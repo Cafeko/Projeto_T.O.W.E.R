@@ -195,7 +195,7 @@ class FitFotosApp(tk.Tk):
 
         esq = ttk.Frame(meio)
         esq.pack(side="left", fill="y")
-        ttk.Label(esq, text="Fotos:").pack(anchor="w")
+        ttk.Label(esq, text="Fotos (← → navega):").pack(anchor="w")
         self.lista = tk.Listbox(esq, width=32, height=20)
         self.lista.pack(side="left", fill="y")
         self.lista.bind("<<ListboxSelect>>", self._ao_selecionar)
@@ -244,6 +244,8 @@ class FitFotosApp(tk.Tk):
         ttk.Label(self, textvariable=self.status_var, relief="sunken",
                   anchor="w").pack(fill="x", side="bottom")
         self.bind("<Control-c>", lambda e: self.copiar_selecionada())
+        self.bind("<Left>", lambda e: self.mover_foto(-1, e))
+        self.bind("<Right>", lambda e: self.mover_foto(1, e))
 
     # ---------- pasta / lista ----------
 
@@ -281,6 +283,24 @@ class FitFotosApp(tk.Tk):
         sel = self.lista.curselection()
         if sel:
             self._mostrar(self.fotos[sel[0]])
+
+    def mover_foto(self, delta: int, evento=None):
+        """Passa para a anterior (delta=-1, seta ←) ou próxima (delta=+1,
+        seta →). Ignora se o foco está num campo de texto, para não roubar
+        as setas da digitação."""
+        if evento is not None and isinstance(
+                evento.widget, (tk.Entry, ttk.Entry, tk.Text)):
+            return None
+        if not self.fotos:
+            return None
+        sel = self.lista.curselection()
+        idx = sel[0] if sel else (0 if delta > 0 else len(self.fotos) - 1)
+        novo = min(max(idx + delta, 0), len(self.fotos) - 1)
+        self.lista.selection_clear(0, "end")
+        self.lista.selection_set(novo)
+        self.lista.see(novo)
+        self._mostrar(self.fotos[novo])
+        return "break"
 
     def _mostrar(self, caminho: Path):
         try:
