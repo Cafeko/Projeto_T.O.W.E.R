@@ -19,6 +19,7 @@ from __future__ import annotations
 import argparse
 import ctypes
 import io
+import json
 import os
 import re
 import struct
@@ -286,6 +287,30 @@ def resolver_pasta(texto: str | None) -> Path | None:
     return p
 
 
+CONFIG_PATH = Path.home() / ".fit_fotos.json"
+
+
+def carregar_config(caminho: Path | str | None = None) -> dict:
+    """Lê as configurações salvas (pasta, tamanho, opções). Falta ou erro -> {}."""
+    try:
+        p = Path(caminho) if caminho else CONFIG_PATH
+        if p.is_file():
+            dados = json.loads(p.read_text(encoding="utf-8"))
+            return dados if isinstance(dados, dict) else {}
+    except Exception:
+        pass
+    return {}
+
+
+def salvar_config(dados: dict, caminho: Path | str | None = None) -> None:
+    """Grava as configurações. Nunca levanta exceção (não trava o programa)."""
+    try:
+        p = Path(caminho) if caminho else CONFIG_PATH
+        p.write_text(json.dumps(dados, ensure_ascii=False, indent=2), encoding="utf-8")
+    except Exception:
+        pass
+
+
 # ============================================================
 # Janela grafica
 # ============================================================
@@ -299,12 +324,19 @@ class FitFotosApp(tk.Tk):
         self.img_original: Image.Image | None = None
         self.img_nome: str = ""
         self.preview_ref = None  # guarda o PhotoImage (evita garbage collector)
+        self.ultima_pasta = ""  # último diretório carregado (persistido)
 
         self._montar()
-        padrao = pasta_inicial or (RAIZ_PROJETO / "Arquivos" / "Fotos")
-        if padrao.is_dir():
-            self.pasta_var.set(str(padrao))
-            self.carregar_pasta()
+        self.protocol("WM_DELETE_WINDOW", self._ao_fechar)
+        self._aplicar_config(carregar_config())
+        # --pasta manda; senão a última pasta salva; senão o padrão.
+        # Só preenche o campo: carrega APENAS ao pressionar Carregar.
+        padrao = pasta_inicial or resolver_pasta(self.pasta_var.get())
+        if padrao is None:
+            padrao = RAIZ_PROJETO / "Arquivos" / "Fotos"
+        self.pasta_var.set(str(padrao))
+        if str(padrao).strip():
+            self.status("Pressione Carregar para listar as fotos.")
 
     # ---------- montagem ----------
 
@@ -390,13 +422,56 @@ class FitFotosApp(tk.Tk):
         self.bind("<Left>", lambda e: self.mover_foto(-1, e))
         self.bind("<Right>", lambda e: self.mover_foto(1, e))
 
+    # ---------- configurações (persistem ao reabrir) ----------
+
+    def _aplicar_config(self, cfg: dict):
+        """Restaura pasta, tamanho e opções salvos."""
+        if not cfg:
+            return
+        for var, chave in ((self.pasta_var, "pasta"),
+                           (self.larg_var, "largura"),
+                           (self.alt_var, "altura"),
+                           (self.unidade_var, "unidade"),
+                           (self.dpi_var, "dpi"),
+                           (self.destino_var, "destino")):
+            v = cfg.get(chave)
+            if isinstance(v, (str, int, float)) and str(v).strip():
+                var.set(str(v))
+        if isinstance(cfg.get("manter_proporcao"), bool):
+            self.proporcao_var.set(cfg["manter_proporcao"])
+        if isinstance(cfg.get("alta"), bool):
+            self.alta_var.set(cfg["alta"])
+        if isinstance(cfg.get("pasta"), str):
+            self.ultima_pasta = cfg["pasta"]
+
+    def _coletar_config(self) -> dict:
+        return {
+            "pasta": self.pasta_var.get().strip(),
+            "largura": self.larg_var.get().strip(),
+            "altura": self.alt_var.get().strip(),
+            "unidade": self.unidade_var.get(),
+            "dpi": self.dpi_var.get().strip(),
+            "manter_proporcao": bool(self.proporcao_var.get()),
+            "alta": bool(self.alta_var.get()),
+            "destino": self.destino_var.get().strip(),
+        }
+
+    def _salvar_config(self):
+        salvar_config(self._coletar_config())
+
+    def _ao_fechar(self):
+        self._salvar_config()
+        self.destroy()
+
     # ---------- pasta / lista ----------
 
     def procurar_pasta(self):
         p = filedialog.askdirectory(title="Pasta com as fotos")
         if p:
             self.pasta_var.set(p)
-            self.carregar_pasta()
+            self.ultima_pasta = p
+            self._salvar_config()
+            self.status("Pasta escolhida — pressione Carregar para listar.")
 
     def procurar_destino(self):
         p = filedialog.askdirectory(title="Pasta de saída")
@@ -404,23 +479,38 @@ class FitFotosApp(tk.Tk):
             self.destino_var.set(p)
 
     def carregar_pasta(self):
-        pasta = Path(self.pasta_var.get().strip().strip('"').strip("'"))
+        texto = self.pasta_var.get().strip().strip('"').strip("'")
+        if not texto:
+            # Campo vazio: volta ao último diretório, se ainda existir.
+            texto = (self.ultima_pasta or "").strip()
+            if texto:
+                self.pasta_var.set(texto)
+        if not texto:
+            messagebox.showinfo("Escolha a pasta",
+                                "Digite o caminho ou use Procurar… para escolher a pasta das fotos.")
+            return
+        pasta = Path(texto)
         if not pasta.is_absolute():
             pasta = RAIZ_PROJETO / pasta
+        if not pasta.is_dir():
+            self.status(f"Pasta não encontrada: '{pasta}'. Confira o caminho ou use Procurar…")
+            return
         fotos = listar_fotos(pasta)
         self.fotos = fotos
+        self.ultima_pasta = str(pasta)
         self.lista.delete(0, "end")
         for f in fotos:
             self.lista.insert("end", f.name)
         if fotos:
             self.lista.selection_set(0)
             self._mostrar(fotos[0])
-            self.status(f"{len(fotos)} fotos em '{pasta}'.")
+            self.status(f"{len(fotos)} fotos recarregadas de '{pasta}'.")
         else:
             self.img_original = None
             self.preview.config(image="", text="(nenhuma foto)")
             self.info_var.set(f"Nenhuma imagem em '{pasta}'.")
             self.status("Nenhuma foto encontrada.")
+        self._salvar_config()
 
     def _ao_selecionar(self, _evt=None):
         sel = self.lista.curselection()
