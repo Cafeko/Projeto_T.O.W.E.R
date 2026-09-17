@@ -1,4 +1,5 @@
 # Dependências Python do Projeto T.O.W.E.R
-# A funcionalidade ordenar-fotos (features/ordenar_fotos/organizar_fotos.py)
-# usa SÓ a biblioteca padrão (csv, shutil, datetime, pathlib, argparse).
-# Nada a instalar no momento. Novas funcionalidades registram aqui o que precisarem.
+# - ordenar-fotos (features/ordenar_fotos/organizar_fotos.py): só stdlib.
+# - fit_fotos (features/fit_fotos/fit_fotos.py): precisa de pillow
+#   (redimensionamento + miniaturas; tkinter já vem com o Python no Windows).
+pillow==12.3.0

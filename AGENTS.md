@@ -24,6 +24,9 @@ Projeto_T.O.W.E.R/
     ordenar_fotos/             # funcionalidade 1
       AGENTS.md                # instruções ESPECÍFICAS — siga esse arquivo ao executar
       organizar_fotos.py       # script da funcionalidade
+    fit_fotos/                 # funcionalidade 2
+      AGENTS.md                # instruções ESPECÍFICAS — siga esse arquivo ao executar
+      fit_fotos.py             # janela gráfica (o agente só ABRE o programa)
 ```
 
 ## Funcionalidades disponíveis
@@ -31,6 +34,7 @@ Projeto_T.O.W.E.R/
 | Funcionalidade | Pasta | Instruções | O que faz |
 |----------------|-------|------------|-----------|
 | Ordenar fotos | `features/ordenar_fotos/` | [`features/ordenar_fotos/AGENTS.md`](features/ordenar_fotos/AGENTS.md) | Organiza fotos pela data/hora do carimbo visível na imagem |
+| Fotos no tamanho do Excel | `features/fit_fotos/` | [`features/fit_fotos/AGENTS.md`](features/fit_fotos/AGENTS.md) | Janela gráfica: vê fotos, escolhe tamanho (px/cm), copia ou salva |
 
 ## Como atuar
 

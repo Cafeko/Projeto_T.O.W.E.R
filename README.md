@@ -8,6 +8,7 @@ Cada funcionalidade mora na sua própria pasta em `features/` e o agente segue o
 | Funcionalidade | Pasta | Docs do agente |
 |----------------|-------|----------------|
 | Ordenar fotos | `features/ordenar_fotos/` | [`features/ordenar_fotos/AGENTS.md`](features/ordenar_fotos/AGENTS.md) |
+| Fotos no tamanho do Excel | `features/fit_fotos/` | [`features/fit_fotos/AGENTS.md`](features/fit_fotos/AGENTS.md) |
 
 Organiza fotos pela **data/hora do carimbo visível na imagem** (ex: `quarta-feira, 9 de setembro de 2026 17:58:53`).
 Pipeline: **agente lê as imagens → `Arquivos/resultado.csv` → cópia ou renomeação ordenada** (`Foto (1)`, `Foto (2)`, …).
@@ -24,9 +25,12 @@ Projeto_T.O.W.E.R/
 │   ├── Fotos_Ordenadas/        # SAÍDA da cópia (ignorado pelo git)
 │   └── resultado.csv           # intermediário: Arquivo,Data,Hora,Data/Hora,Status,Texto IA
 └── features/
-    └── ordenar_fotos/          # funcionalidade 1
-        ├── AGENTS.md           # fluxo exato do agente
-        └── organizar_fotos.py  # único meio permitido de copiar/renomear
+    ├── ordenar_fotos/          # funcionalidade 1
+    │   ├── AGENTS.md           # fluxo exato do agente
+    │   └── organizar_fotos.py  # único meio permitido de copiar/renomear
+    └── fit_fotos/              # funcionalidade 2
+        ├── AGENTS.md           # fluxo exato do agente (só abre o programa)
+        └── fit_fotos.py        # janela gráfica: tamanho px/cm, copiar ou salvar
 ```
 
 ## Uso (agente externo)
@@ -55,10 +59,22 @@ semdata.jpeg,,,,DATA NÃO ENCONTRADA,texto lido na imagem
 Fotos sem data legível ficam com Data/Hora vazios e vão por último — nunca são descartadas.
 Ao concluir, o script limpa o CSV (só cabeçalho); `--manter-csv` desativa isso.
 
+## Uso (fit_fotos — fotos no tamanho do Excel)
+
+```bash
+python features/fit_fotos/fit_fotos.py --pasta Arquivos/Fotos
+```
+
+Abre a janela: escolha a pasta, clique na foto, digite largura x altura em
+**px ou cm** (cm usa o DPI informado, padrão 96 como no Excel), marque
+**manter proporção** (sem distorcer) ou deixe desmarcado para o tamanho exato.
+Depois **copie** a selecionada (Ctrl+C — pronta para Ctrl+V no Excel) ou
+**salve todas** redimensionadas (padrão: `Arquivos/Fotos_Fit/`).
+
 ## Requisitos
 
 - Python 3.10+
-- `pip install -r requisitos.txt` (hoje: só biblioteca padrão — nada a instalar)
+- `pip install -r requisitos.txt` (pillow — redimensionamento do fit_fotos; ordenar-fotos usa só stdlib)
 
 ## Notas
 
