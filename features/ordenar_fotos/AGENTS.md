@@ -38,7 +38,14 @@ Sempre nesta ordem, perguntando antes de agir:
 
 - Formatos possíveis: `DD/MM/AAAA HH:MM:SS`, `AAAA-MM-DD HH:MM`, `9 de setembro de 2026 17:58:53`, `September 9, 2026 15:15:55`, com ou sem milissegundos. Vale qualquer ano, mes e dia.
 - Ignore coordenadas GPS, endereços e outros textos — só a data/hora interessa.
+- **Cor do texto varia** (branco, amarelo ou outra): nunca descarte por cor. Em fundo claro (céu, chapa metálica, etiqueta) o contraste cai — amplie e confira com atenção.
 - Se a foto **não tiver data legível**: deixe Data/Hora vazios, Status = `DATA NÃO ENCONTRADA`. Ela vai por último na ordenação — **nunca descarte fotos**.
+
+## Segunda tentativa obrigatória (só agentes externos)
+
+- Se não achar a data de primeira (recorte do rodapé ou primeira leitura), **reabra a imagem inteira** e procure de novo: o carimbo pode estar mais alto ou em outra cor/posição (ex: overlay de drone em amarelo no meio da foto).
+- Vale recorte maior, ampliação ou segunda passada de OCR com outra região — o que importa é cobrir a **foto toda**.
+- Só marque `DATA NÃO ENCONTRADA` depois dessa segunda tentativa na imagem inteira.
 
 ## Formato exato de `Arquivos/resultado.csv`
 
