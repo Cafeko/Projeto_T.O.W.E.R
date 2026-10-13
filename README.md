@@ -9,6 +9,7 @@ Cada funcionalidade mora na sua própria pasta em `features/` e o agente segue o
 |----------------|-------|----------------|
 | Ordenar fotos | `features/ordenar_fotos/` | [`features/ordenar_fotos/AGENTS.md`](features/ordenar_fotos/AGENTS.md) |
 | Fotos no tamanho do Excel | `features/fit_fotos/` | [`features/fit_fotos/AGENTS.md`](features/fit_fotos/AGENTS.md) |
+| Classificar fotos | `features/classificar_fotos/` | [`features/classificar_fotos/AGENTS.md`](features/classificar_fotos/AGENTS.md) |
 
 Organiza fotos pela **data/hora do carimbo visível na imagem** (ex: `quarta-feira, 9 de setembro de 2026 17:58:53`).
 Pipeline: **agente lê as imagens → `Arquivos/resultado.csv` → cópia ou renomeação ordenada** (`Foto (1)`, `Foto (2)`, …).
@@ -23,14 +24,19 @@ Projeto_T.O.W.E.R/
 ├── Arquivos/                   # dados compartilhados na raiz
 │   ├── Fotos/                  # ENTRADA - coloque as fotos aqui (ignorado pelo git)
 │   ├── Fotos_Ordenadas/        # SAÍDA da cópia (ignorado pelo git)
+│   ├── Classificadas/          # SAÍDA por relatório: <relatorio>/<classe>/ + classificacao.csv + viewer.json (ignorado)
 │   └── resultado.csv           # intermediário: Arquivo,Data,Hora,Data/Hora,Status,Texto IA
 └── features/
     ├── ordenar_fotos/          # funcionalidade 1
     │   ├── AGENTS.md           # fluxo exato do agente
     │   └── organizar_fotos.py  # único meio permitido de copiar/renomear
-    └── fit_fotos/              # funcionalidade 2
-        ├── AGENTS.md           # fluxo exato do agente (só abre o programa)
-        └── fit_fotos.py        # janela gráfica: tamanho px/cm, copiar ou salvar
+    ├── fit_fotos/              # funcionalidade 2
+    │   ├── AGENTS.md           # fluxo exato do agente (só abre o programa)
+    │   └── fit_fotos.py        # janela gráfica: tamanho px/cm, copiar ou salvar
+    └── classificar_fotos/      # funcionalidade 3
+        ├── AGENTS.md           # fluxo exato (preparar → treino → distribuir)
+        ├── classificar_fotos.py # --preparar ambiente + distribui por classe
+        └── modo_treino.py      # janela treino estilo fit_fotos (humano valida)
 ```
 
 ## Uso (agente externo)
@@ -77,12 +83,33 @@ Com **Alta resolução** marcado (padrão), a foto vai com os pixels originais e
 só o tamanho de exibição é ajustado — sem perda de qualidade.
 O programa lembra pasta, tamanho e opções ao reabrir (`~/.fit_fotos.json`).
 
+## Uso (classificar_fotos — ambiente + treino + distribuição)
+
+```bash
+python features/classificar_fotos/classificar_fotos.py --preparar --relatorio gna_fonte --origem Arquivos/Fotos_Ordenadas
+python features/classificar_fotos/modo_treino.py --relatorio gna_fonte
+python features/classificar_fotos/classificar_fotos.py --relatorio gna_fonte
+python features/fit_fotos/fit_fotos.py --pasta Arquivos/Classificadas/gna_fonte/fonte_trocada
+```
+
+`--preparar` cria o ambiente (`fotos/` + CSV todas PENDENTE + viewer) sem
+classificar e sem sugerir por nome; a tentativa é por conteúdo e a pessoa
+corrige/classifica o resto no treino (cada foto validada vai p/
+`_dataset/<classe>/`, cópia permanente — pode apagar os originais);
+mesma foto pode ir para N classes (`Classes` separadas por `;`).
+
+## Fluxo relatório novo (ordenar → classificar)
+
+Diga ao agente "novo relatório". Ele pergunta o **nome do relatório** e
+**de onde pegar as fotos**, ordena, prepara o ambiente, abre o treino e
+distribui. Cada funcionalidade também funciona **separada**.
+
 ## Requisitos
 
 - Python 3.10+
-- `pip install -r requisitos.txt` (pillow — redimensionamento do fit_fotos; ordenar-fotos usa só stdlib)
+- `pip install -r requisitos.txt` (pillow — redimensionamento do fit_fotos; ordenar e classificar usam só stdlib)
 
 ## Notas
 
 - Rode os scripts a partir da **raiz do projeto**; caminhos relativos se resolvem contra a raiz.
-- `Arquivos/Fotos/` e `Arquivos/Fotos_Ordenadas/` são ignorados pelo git — nunca commite fotos.
+- `Arquivos/Fotos/`, `Arquivos/Fotos_Ordenadas/` e `Arquivos/Classificadas/` são ignorados pelo git — nunca commite fotos.

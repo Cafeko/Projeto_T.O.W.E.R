@@ -385,6 +385,27 @@ def salvar_config(dados: dict, caminho: Path | str | None = None) -> None:
         pass
 
 
+def enquadrar_zoom(img: Image.Image, caixa_larg: int, caixa_alt: int,
+                   z: float, ox: int, oy: int) -> tuple[Image.Image, float]:
+    """Foto original -> imagem da prévia com zoom.
+
+    Ajusta a foto na caixa (sem distorcer) e aplica o zoom z a partir da
+    origem (ox, oy). Retorna (imagem_pronta, escala_de_ajuste).
+    """
+    ow, oh = img.size
+    f = min(caixa_larg / ow, caixa_alt / oh)
+    bw, bh = max(1, int(ow * f)), max(1, int(oh * f))
+    sw, sh = max(1, int(bw * z)), max(1, int(bh * z))
+    vista = img.resize((sw, sh), Image.LANCZOS)
+    if sw <= caixa_larg and sh <= caixa_alt:
+        fundo = Image.new("RGB", (caixa_larg, caixa_alt), (240, 240, 240))
+        fundo.paste(vista, ((caixa_larg - sw) // 2, (caixa_alt - sh) // 2))
+        return fundo, f
+    x0 = min(max(ox, 0), sw - caixa_larg)
+    y0 = min(max(oy, 0), sh - caixa_alt)
+    return vista.crop((x0, y0, x0 + caixa_larg, y0 + caixa_alt)), f
+
+
 # ============================================================
 # Janela grafica
 # ============================================================
@@ -399,6 +420,10 @@ class FitFotosApp(tk.Tk):
         self.img_nome: str = ""
         self.preview_ref = None  # guarda o PhotoImage (evita garbage collector)
         self.ultima_pasta = ""  # último diretório carregado (persistido)
+        self.zoom_z = 1.0  # 1.0 = ajustada; >1 aproxima
+        self.zoom_ox = 0  # origem do recorte na imagem ampliada
+        self.zoom_oy = 0
+        self.zoom_base = 1.0  # escala de ajuste (foto -> caixa)
 
         self._montar()
         self.protocol("WM_DELETE_WINDOW", self._ao_fechar)
@@ -426,6 +451,7 @@ class FitFotosApp(tk.Tk):
         self.info_var = tk.StringVar(value="Escolha a pasta das fotos.")
         self.px_var = tk.StringVar(value="")
         self.status_var = tk.StringVar(value="Pronto.")
+        self.zoom_var = tk.StringVar(value="100%")
 
         topo = ttk.Frame(self, padding=8)
         topo.pack(fill="x")
@@ -453,6 +479,23 @@ class FitFotosApp(tk.Tk):
                                  relief="sunken", width=60)
         self.preview.pack(fill="both", expand=True)
         ttk.Label(dir_, textvariable=self.info_var, wraplength=500).pack(pady=4)
+        zoom_bar = ttk.Frame(dir_)
+        zoom_bar.pack(pady=(0, 4))
+        ttk.Label(zoom_bar, text="Zoom:").pack(side="left")
+        ttk.Button(zoom_bar, text="−", width=3,
+                   command=lambda: self.zoom_por(1 / 1.25)).pack(side="left", padx=2)
+        ttk.Label(zoom_bar, textvariable=self.zoom_var, width=6,
+                  anchor="center").pack(side="left")
+        ttk.Button(zoom_bar, text="+", width=3,
+                   command=lambda: self.zoom_por(1.25)).pack(side="left", padx=2)
+        ttk.Button(zoom_bar, text="Ajustar",
+                   command=self.zoom_ajustar).pack(side="left", padx=2)
+        ttk.Button(zoom_bar, text="1:1",
+                   command=self.zoom_um_para_um).pack(side="left", padx=2)
+        self.preview.bind("<MouseWheel>", self.zoom_girar)
+        self.preview.bind("<ButtonPress-1>", self.zoom_iniciar_arrasto)
+        self.preview.bind("<B1-Motion>", self.zoom_arrastar)
+        self.preview.bind("<Configure>", lambda _e: self.render_preview())
 
         ctrl = ttk.LabelFrame(self, text="Tamanho desejado", padding=8)
         ctrl.pack(fill="x", padx=8)
@@ -618,11 +661,87 @@ class FitFotosApp(tk.Tk):
             self.info_var.set(f"Erro ao abrir {caminho.name}: {e}")
             return
         self.img_nome = caminho.name
-        prev = self.img_original.copy()
-        prev.thumbnail((560, 380), Image.LANCZOS)
-        self.preview_ref = ImageTk.PhotoImage(prev)
-        self.preview.config(image=self.preview_ref, text="")
+        self.zoom_z, self.zoom_ox, self.zoom_oy = 1.0, 0, 0
+        self.render_preview()
         self.atualizar_px()
+
+    # ---------- zoom da prévia (rodinha, botões, arrastar) ----------
+
+    def caixa_zoom(self) -> tuple[int, int]:
+        """Caixa fixa da foto (tamanho de antes), limitada à área visível."""
+        try:
+            larg = self.preview.winfo_width()
+            alt = self.preview.winfo_height()
+        except Exception:
+            larg, alt = 520, 340
+        return min(520, max(200, larg)), min(340, max(200, alt))
+
+    def render_preview(self):
+        """Desenha a prévia com o zoom atual (1.0 = ajustada)."""
+        if self.img_original is None:
+            return
+        larg, alt = self.caixa_zoom()
+        vista, base = enquadrar_zoom(self.img_original, larg, alt,
+                                     self.zoom_z, self.zoom_ox, self.zoom_oy)
+        self.zoom_base = base
+        self.preview_ref = ImageTk.PhotoImage(vista)
+        self.preview.config(image=self.preview_ref, text="")
+        self.zoom_var.set(f"{int(round(self.zoom_z * 100))}%")
+
+    def zoom_por(self, fator: float):
+        """Aplica zoom mantendo o centro visível. Rodinha usa 1.25."""
+        if self.img_original is None:
+            return
+        larg, alt = self.caixa_zoom()
+        z_antes = self.zoom_z
+        z_novo = min(8.0, max(0.2, z_antes * fator))
+        if z_novo == z_antes:
+            return
+        ow, oh = self.img_original.size
+        f = min(larg / ow, alt / oh)
+        ant_larg, ant_alt = max(1, int(ow * f * z_antes)), max(1, int(oh * f * z_antes))
+        nova_larg, nova_alt = max(1, int(ow * f * z_novo)), max(1, int(oh * f * z_novo))
+        cx = (self.zoom_ox + min(ant_larg, larg) / 2) / ant_larg
+        cy = (self.zoom_oy + min(ant_alt, alt) / 2) / ant_alt
+        self.zoom_z = z_novo
+        self.zoom_ox = int(nova_larg * cx - larg / 2)
+        self.zoom_oy = int(nova_alt * cy - alt / 2)
+        self.render_preview()
+
+    def zoom_ajustar(self):
+        if self.img_original is None:
+            return
+        self.zoom_z, self.zoom_ox, self.zoom_oy = 1.0, 0, 0
+        self.render_preview()
+
+    def zoom_um_para_um(self):
+        """Zoom 1:1 (1 pixel da foto = 1 pixel da tela)."""
+        if self.img_original is None:
+            return
+        larg, alt = self.caixa_zoom()
+        ow, oh = self.img_original.size
+        f = min(larg / ow, alt / oh) or 1.0
+        self.zoom_z = min(8.0, max(0.2, 1.0 / f))
+        ow_s, oh_s = max(1, int(ow * f * self.zoom_z)), max(1, int(oh * f * self.zoom_z))
+        self.zoom_ox, self.zoom_oy = max(0, (ow_s - larg) // 2), max(0, (oh_s - alt) // 2)
+        self.render_preview()
+
+    def zoom_girar(self, evento):
+        if self.img_original is None:
+            return None
+        self.zoom_por(1.25 if evento.delta > 0 else 1 / 1.25)
+        return "break"
+
+    def zoom_iniciar_arrasto(self, evento):
+        self._arrasto = (evento.x, evento.y, self.zoom_ox, self.zoom_oy)
+
+    def zoom_arrastar(self, evento):
+        if self.img_original is None or not hasattr(self, "_arrasto"):
+            return None
+        x0, y0, ox, oy = self._arrasto
+        self.zoom_ox, self.zoom_oy = ox - (evento.x - x0), oy - (evento.y - y0)
+        self.render_preview()
+        return "break"
 
     # ---------- tamanho ----------
 

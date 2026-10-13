@@ -13,9 +13,13 @@ import shutil
 from datetime import datetime
 from pathlib import Path
 
-PASTA_FOTOS = Path("Arquivos/fotos")
-PASTA_DESTINO = Path("Arquivos/Fotos_Ordenadas")
-ARQUIVO_CSV = Path("Arquivos/resultado.csv")
+# Raiz do projeto (2 níveis acima): caminhos absolutos funcionam
+# com duplo-clique ou qualquer diretório atual.
+RAIZ_PROJETO = Path(__file__).resolve().parents[2]
+
+PASTA_FOTOS = RAIZ_PROJETO / "Arquivos" / "fotos"
+PASTA_DESTINO = RAIZ_PROJETO / "Arquivos" / "Fotos_Ordenadas"
+ARQUIVO_CSV = RAIZ_PROJETO / "Arquivos" / "resultado.csv"
 CABECALHO_CSV = ["Arquivo", "Data", "Hora", "Data/Hora", "Status", "Texto IA"]
 
 def limpar_csv(csv_path: Path | str | None = None):

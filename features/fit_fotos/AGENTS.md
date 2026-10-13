@@ -31,6 +31,7 @@ features/fit_fotos/
 3. **Explique em 2 frases**: na janela a pessoa navega com ← →, escolhe o
    tamanho (px ou cm), marca manter-proporção ou não, e copia (Ctrl+C), salva
    todas ou envia direto p/ o Excel aberto (Ctrl+E — nítido, já no tamanho).
+   Zoom na foto: rodinha do mouse, botões −/+ (Ajustar, 1:1) ou arrastar p/ navegar.
 4. **Encerre** — não há CSV nem etapa posterior; seu trabalho acaba ao abrir.
 
 ## Comando (você só chama — a pessoa opera a janela)
