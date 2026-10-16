@@ -10,6 +10,7 @@ Cada funcionalidade mora na sua própria pasta em `features/` e o agente segue o
 | Ordenar fotos | `features/ordenar_fotos/` | [`features/ordenar_fotos/AGENTS.md`](features/ordenar_fotos/AGENTS.md) |
 | Fotos no tamanho do Excel | `features/fit_fotos/` | [`features/fit_fotos/AGENTS.md`](features/fit_fotos/AGENTS.md) |
 | Classificar fotos | `features/classificar_fotos/` | [`features/classificar_fotos/AGENTS.md`](features/classificar_fotos/AGENTS.md) |
+| Montar relatório | `features/montar_relatorio/` | [`features/montar_relatorio/AGENTS.md`](features/montar_relatorio/AGENTS.md) |
 
 Organiza fotos pela **data/hora do carimbo visível na imagem** (ex: `quarta-feira, 9 de setembro de 2026 17:58:53`).
 Pipeline: **agente lê as imagens → `Arquivos/resultado.csv` → cópia ou renomeação ordenada** (`Foto (1)`, `Foto (2)`, …).

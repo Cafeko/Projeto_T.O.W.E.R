@@ -31,6 +31,9 @@ Projeto_T.O.W.E.R/
     classificar_fotos/         # funcionalidade 3
       AGENTS.md                # instruções ESPECÍFICAS — siga esse arquivo ao executar
       classificar_fotos.py     # distribui fotos ordenadas por relatório/classe (multi-rótulo)
+    montar_relatorio/          # funcionalidade 4 (foco atual)
+      AGENTS.md                # instruções ESPECÍFICAS — siga esse arquivo ao executar
+      montar_relatorio.py      # agrupa por atividade do escopo + etapa (antes/durante/depois)
 ```
 
 ## Funcionalidades disponíveis
@@ -40,6 +43,7 @@ Projeto_T.O.W.E.R/
 | Ordenar fotos | `features/ordenar_fotos/` | [`features/ordenar_fotos/AGENTS.md`](features/ordenar_fotos/AGENTS.md) | Organiza fotos pela data/hora do carimbo visível na imagem |
 | Fotos no tamanho do Excel | `features/fit_fotos/` | [`features/fit_fotos/AGENTS.md`](features/fit_fotos/AGENTS.md) | Janela gráfica: vê fotos, escolhe tamanho (px/cm), copia ou salva |
 | Classificar fotos | `features/classificar_fotos/` | [`features/classificar_fotos/AGENTS.md`](features/classificar_fotos/AGENTS.md) | Classifica fotos ordenadas por relatório/classe (multi-rótulo), pronto p/ UI estilo fit_fotos |
+| Montar relatório | `features/montar_relatorio/` | [`features/montar_relatorio/AGENTS.md`](features/montar_relatorio/AGENTS.md) | Agrupa por atividade do escopo + etapa (antes/durante/depois) p/ provar serviço feito |
 
 ## Como atuar
 
