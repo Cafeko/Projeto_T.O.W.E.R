@@ -40,11 +40,11 @@ PASTA_ATIVIDADES = "atividades"
 PASTA_SITE = "fotos_do_site"
 PASTA_SEM = "_NAO_IDENTIFICADAS"
 PASTA_MODELOS = "_modelos"
-PASTA_HISTORICO = "_relatorios"
 N_MODELOS_PADRAO = 10
 NOME_ESCOPO = "escopo.json"
 NOME_EVIDENCIA = "evidencia.csv"
 NOME_VIEWER = "viewer.json"
+NOME_CATALOGO = "_catalogo.json"
 
 ETAPAS = ("antes", "durante", "depois")
 CONFIANCAS = ("alta", "media", "baixa", "")
@@ -405,6 +405,64 @@ def tipo_site(observacao: str) -> str:
     return "geral"
 
 
+def atualizar_catalogo(dest_base: Path) -> Path:
+    """Reconstrói _modelos/_catalogo.json a partir das pastas de modelos.
+
+    O catálogo é indexado por TIPO de atividade — não por relatório — e
+    reúne título, descrição, o que mostrar em cada etapa e os exemplos
+    guardados. Os tipos de site ficam em `site`. Remove o metadado antigo
+    `exemplo_de` dos guias (o relatório de origem não é o que se aprende).
+    """
+    catalogo = {"atividades": {}, "site": {}}
+
+    for pasta in sorted(dest_base.iterdir()):
+        if not pasta.is_dir() or pasta.name == ATIVIDADE_SITE:
+            continue
+        guia_path = pasta / "guia.json"
+        if not guia_path.exists():
+            continue
+        try:
+            with open(guia_path, encoding="utf-8") as f:
+                guia = json.load(f)
+        except (OSError, json.JSONDecodeError):
+            continue
+
+        if "exemplo_de" in guia:
+            guia.pop("exemplo_de", None)
+            with open(guia_path, "w", encoding="utf-8") as f:
+                json.dump(guia, f, ensure_ascii=False, indent=2)
+
+        tipo = str(guia.get("tipo") or pasta.name).strip() or pasta.name
+        exemplos = {}
+        for etapa in ETAPAS:
+            sub = pasta / etapa
+            exemplos[etapa] = (sorted(
+                (p.name for p in sub.iterdir()
+                 if p.is_file() and p.suffix.lower() in EXTENSOES),
+                key=chave_natural) if sub.is_dir() else [])
+        catalogo["atividades"][tipo] = {
+            "tipo": tipo,
+            "titulo": guia.get("titulo", ""),
+            "descricao": guia.get("descricao", ""),
+            "mostrar": guia.get("mostrar", {}),
+            "exemplos": exemplos,
+        }
+
+    site_dir = dest_base / ATIVIDADE_SITE
+    if site_dir.is_dir():
+        for pasta in sorted(site_dir.iterdir()):
+            if pasta.is_dir():
+                catalogo["site"][pasta.name] = sorted(
+                    (p.name for p in pasta.iterdir()
+                     if p.is_file() and p.suffix.lower() in EXTENSOES),
+                    key=chave_natural)
+
+    catalogo_path = dest_base / NOME_CATALOGO
+    with open(catalogo_path, "w", encoding="utf-8") as f:
+        json.dump(catalogo, f, ensure_ascii=False, indent=2)
+    return catalogo_path
+
+
 def guardar_modelos(relatorio: str,
                     por_grupo: int = N_MODELOS_PADRAO,
                     base: Path | str | None = None,
@@ -412,12 +470,12 @@ def guardar_modelos(relatorio: str,
     """Guarda fotos-modelo por TIPO de atividade p/ relatórios futuros.
 
     O que importa aprender é o que deve ser mostrado em cada tipo de
-    atividade (ex: desinstalacao, instalacao, bateria), não o relatório
+    atividade (ex: instalacao_bateria, protecao_bateria), não o relatório
     em si. Copia até `por_grupo` fotos por (tipo, etapa) e por tipo de
     site para Arquivos/Relatorios/_modelos/<tipo>/, preferindo Status OK
-    e Confianca alta, e grava _modelos/<tipo>/guia.json com o que deve
-    ser mostrado em cada etapa. Também registra os nomes em
-    escopo.json (exemplos). Não apaga nada.
+    e Confianca alta, grava _modelos/<tipo>/guia.json com o que deve ser
+    mostrado em cada etapa e consolida tudo em _modelos/_catalogo.json.
+    Nada é guardado por relatório. Não apaga nada.
     """
     base = Path(base) if base else BASE_RELATORIOS
     pasta_rel = base / sanitizar_nome(relatorio)
@@ -502,15 +560,25 @@ def guardar_modelos(relatorio: str,
             total += len(nomes)
             ex = ativ.setdefault("exemplos", {"antes": [], "durante": [], "depois": []})
             ex[etapa] = nomes
-        # guia do tipo: o que deve ser mostrado em cada etapa (usa a
-        # descrição deste relatório se o guia ainda não existir).
+        # guia do tipo: o que deve ser mostrado em cada etapa. Se o tipo
+        # já existe de outro relatório, preserva o guia e só completa o
+        # que faltar (o aprendizado é por atividade, não por relatório).
         guia_path = dest_base / tipo / "guia.json"
-        if not guia_path.exists():
-            guia = {"tipo": tipo,
-                    "mostrar": dict(ativ.get("evidencia", {})),
-                    "exemplo_de": sanitizar_nome(relatorio)}
-            with open(guia_path, "w", encoding="utf-8") as f:
-                json.dump(guia, f, ensure_ascii=False, indent=2)
+        guia = {}
+        if guia_path.exists():
+            try:
+                with open(guia_path, encoding="utf-8") as f:
+                    guia = json.load(f)
+            except (OSError, json.JSONDecodeError):
+                guia = {}
+        guia["tipo"] = tipo
+        guia.setdefault("titulo", ativ.get("titulo", ""))
+        guia.setdefault("descricao", ativ.get("descricao", ""))
+        if not guia.get("mostrar"):
+            guia["mostrar"] = dict(ativ.get("evidencia", {}))
+        guia.pop("exemplo_de", None)
+        with open(guia_path, "w", encoding="utf-8") as f:
+            json.dump(guia, f, ensure_ascii=False, indent=2)
 
     ex_site: dict[str, list[str]] = {}
     por_tipo: dict[str, list[dict]] = {}
@@ -530,18 +598,14 @@ def guardar_modelos(relatorio: str,
     with open(pasta_rel / NOME_ESCOPO, "w", encoding="utf-8") as f:
         json.dump(escopo, f, ensure_ascii=False, indent=2)
 
-    # Histórico do relatório (só texto, sem fotos): permite apagar a pasta
-    # do relatório inteira sem perder escopo + classificação.
-    hist = base / PASTA_HISTORICO / sanitizar_nome(relatorio)
-    hist.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(pasta_rel / NOME_ESCOPO, hist / NOME_ESCOPO)
-    shutil.copy2(pasta_rel / NOME_EVIDENCIA, hist / NOME_EVIDENCIA)
+    catalogo_path = atualizar_catalogo(dest_base)
 
     print(f"\nModelos (por tipo de atividade): {total} fotos -> {dest_base}/")
-    print("Guias em _modelos/<tipo>/guia.json: o que mostrar em cada etapa.")
-    print(f"Histórico (texto) em {hist}/.")
-    print("Nada foi apagado — pode apagar a pasta do relatório INTEIRA só "
-          "quando o usuário mandar.")
+    print(f"Guia por tipo: {dest_base}/<tipo>/guia.json")
+    print(f"Catálogo de atividades/exemplos: {catalogo_path}")
+    print("Base permanente por TIPO de atividade — nada é guardado por relatório.")
+    print("Nada foi apagado — a pasta do relatório pode ser apagada INTEIRA "
+          "só quando o usuário mandar.")
     return dest_base
 
 
@@ -559,8 +623,8 @@ def main(argv=None):
                     help="prepara o ambiente: copia fotos p/ fotos/, cria escopo.json "
                          "modelo + evidencia.csv todas PENDENTE")
     ap.add_argument("--modelos", action="store_true",
-                    help="guarda poucas fotos-modelo em _modelos/<relatorio>/ e "
-                         "registra em escopo.json (depois pode apagar as fotos)")
+                    help="guarda fotos-modelo por tipo de atividade/site em _modelos/ "
+                         "(+ _catalogo.json), sem histórico por relatório")
     ap.add_argument("--por-grupo", type=int, default=N_MODELOS_PADRAO,
                     help="fotos-modelo por (atividade, etapa) e por tipo de site "
                          f"(padrao: {N_MODELOS_PADRAO})")

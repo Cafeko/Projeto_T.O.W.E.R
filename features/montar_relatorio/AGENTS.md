@@ -40,6 +40,11 @@ Arquivos/Relatorios/<relatorio>/
   _NAO_IDENTIFICADAS/             # fallback
   viewer.json                     # índice p/ UI futura
 
+Arquivos/Relatorios/_modelos/     # BASE PERMANENTE por ATIVIDADE (não por relatório)
+  _catalogo.json                  # índice: tipos + o que mostrar + exemplos
+  <tipo>/antes|durante|depois/    # fotos-modelo por tipo de atividade
+  SITE/<tipo>/                    # fotos-modelo por tipo de site
+
 features/montar_relatorio/
   montar_relatorio.py             # --preparar + distribuir (único meio de copiar)
   avaliar_relatorio.py            # janela: avalia foto a foto, corrige e distribui (a pessoa opera)
@@ -62,8 +67,10 @@ features/montar_relatorio/
    (1 frase visual cada — é o que guia a classificação). Se o usuário tiver
    2-3 fotos-modelo por etapa, registre em `exemplos` e **abra essas imagens
    com sua visão antes de classificar as novas** (few-shot). Se
-   `_modelos/<tipo>/` já existir de outro relatório, abra o `guia.json` e
-   as fotos de lá primeiro — é assim que a LLM aprende o que mostrar.
+   `_modelos/_catalogo.json` existir, abra-o primeiro: ele lista os tipos
+   de atividade já aprendidos, o que mostrar em cada etapa e os exemplos.
+   Depois abra `_modelos/<tipo>/guia.json` e as fotos de lá — é assim que
+   a LLM aprende o que mostrar.
 5. **Classificar (VOCÊ faz)** — abra e leia **cada imagem** de `fotos/` e
    preencha `evidencia.csv` no formato exato abaixo, pela **regra de foco**:
    só marque atividade+etapa se o conteúdo estiver nítido e identificável
@@ -88,13 +95,14 @@ features/montar_relatorio/
    no Excel em ordem.
 9. **Enxugar (só quando o usuário mandar)** — NUNCA apague nada por conta
    própria. Quando ele disser que o relatório está pronto, rode
-   `--modelos`: guarda 2 fotos por **tipo de atividade** em
-   `_modelos/<tipo>/antes|durante|depois/` (+ `guia.json` com o que deve
-   ser mostrado), por tipo de site em `_modelos/SITE/<tipo>/`, e arquiva
-   `escopo.json` + `evidencia.csv` em `_relatorios/<relatorio>/` (só texto).
-   É esse acervo por tipo — não o relatório — que ensina os próximos (ex:
-   outra `instalacao` ou `bateria`). Só então a pasta do relatório pode
-   ser apagada **inteira**.
+   `--modelos --por-grupo 5` (ou o limite que ele pedir): guarda até N
+   fotos por **tipo de atividade** em `_modelos/<tipo>/antes|durante|depois/`
+   (+ `guia.json` com título/descrição e o que deve ser mostrado) e por
+   tipo de site em `_modelos/SITE/<tipo>/`. Tudo é consolidado em
+   `_modelos/_catalogo.json` — é esse acervo por **atividade**, não o
+   relatório, que ensina os próximos (ex: outra `instalacao_bateria`).
+   **Nada é arquivado por relatório** (sem `_relatorios/<relatorio>/`).
+   Só então a pasta do relatório pode ser apagada **inteira**.
 
 ## Formato exato de `escopo.json`
 
@@ -156,6 +164,9 @@ boas (relatório final); sem a flag, copia tudo (para avaliar).
 ## Regras
 
 - **Nunca copiar/renomeie manualmente**: só via `montar_relatorio.py`.
+- **Aprendizado por atividade**: os exemplos vivem em `_modelos/<tipo>/` +
+  `_catalogo.json`. Não existe histórico por relatório (`_relatorios/`); o
+  relatório é descartável, o que se reaproveita é o tipo de atividade.
 - **1 foto = 1 atividade + 1 etapa** (diferente do classificar, que era N classes).
 - **Ordem preservada**: mantém `Foto (n)` dentro de cada etapa.
 - **Execução**: rode a partir da **raiz**; caminhos relativos contra a raiz.
@@ -176,8 +187,9 @@ python features/montar_relatorio/montar_relatorio.py --relatorio <nome> --so-boa
 # avaliar na janela (a pessoa valida/corrige; fica aberta; tem botão Distribuir)
 python features/montar_relatorio/avaliar_relatorio.py --relatorio <nome>
 
-# guardar modelos p/ relatórios futuros (SÓ após o usuário aprovar; não apaga nada)
-python features/montar_relatorio/montar_relatorio.py --modelos --relatorio <nome>
+# guardar exemplos por TIPO de atividade em _modelos/ + _catalogo.json
+# (SÓ após o usuário aprovar; NÃO guarda histórico por relatório e não apaga nada)
+python features/montar_relatorio/montar_relatorio.py --modelos --relatorio <nome> --por-grupo 5
 
 # ver uma etapa no tamanho do Excel
 python features/fit_fotos/fit_fotos.py --pasta "Arquivos/Relatorios/<relatorio>/atividades/01_<slug>/depois"
