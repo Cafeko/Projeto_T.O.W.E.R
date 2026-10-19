@@ -41,7 +41,7 @@ PASTA_SITE = "fotos_do_site"
 PASTA_SEM = "_NAO_IDENTIFICADAS"
 PASTA_MODELOS = "_modelos"
 PASTA_HISTORICO = "_relatorios"
-N_MODELOS_PADRAO = 2
+N_MODELOS_PADRAO = 10
 NOME_ESCOPO = "escopo.json"
 NOME_EVIDENCIA = "evidencia.csv"
 NOME_VIEWER = "viewer.json"
@@ -407,7 +407,8 @@ def tipo_site(observacao: str) -> str:
 
 def guardar_modelos(relatorio: str,
                     por_grupo: int = N_MODELOS_PADRAO,
-                    base: Path | str | None = None) -> Path:
+                    base: Path | str | None = None,
+                    somente: set[str] | None = None) -> Path:
     """Guarda fotos-modelo por TIPO de atividade p/ relatórios futuros.
 
     O que importa aprender é o que deve ser mostrado em cada tipo de
@@ -431,16 +432,49 @@ def guardar_modelos(relatorio: str,
     dest_base.mkdir(parents=True, exist_ok=True)
 
     def melhores(candidatas: list[dict]) -> list[dict]:
+        """Escolhe até `por_grupo` fotos BOAS e VARIADAS.
+
+        Variedade: descarta 'similar a Foto (X)' / observação repetida e
+        fotos a menos de 30 s de uma já escolhida (mesma cena/rajada).
+        """
+        from datetime import datetime
+
+        def tempo(c):
+            for fmt in ("%d/%m/%Y %H:%M:%S", "%d/%m/%Y %H:%M:%S.%f"):
+                try:
+                    return datetime.strptime(_campo(c, "datahora").strip(), fmt)
+                except ValueError:
+                    continue
+            return None
+
         def chave(c):
-            qual = 0 if _campo(c, "qualidade") == "boa" else 1
-            ok = 0 if _campo(c, "status") == "OK" else 1
             conf = {"alta": 0, "media": 1, "baixa": 2}.get(_campo(c, "confianca"), 3)
+            ok = 0 if _campo(c, "status") == "OK" else 1
             try:
                 ordem = int(str(_campo(c, "ordem") or "0"))
             except ValueError:
                 ordem = 10 ** 9
-            return (qual, ok, conf, ordem)
-        return sorted(candidatas, key=chave)[:por_grupo]
+            return (ok, conf, ordem)
+
+        escolhidas: list[dict] = []
+        obs_vistas: set[str] = set()
+        tempos: list[datetime] = []
+        for c in sorted(candidatas, key=chave):
+            if len(escolhidas) >= por_grupo:
+                break
+            if _campo(c, "qualidade") != "boa":
+                continue
+            obs = _campo(c, "observacao").strip().lower()
+            if "similar a" in obs or obs in obs_vistas:
+                continue
+            t = tempo(c)
+            if t and any(abs((t - tc).total_seconds()) < 30 for tc in tempos):
+                continue
+            escolhidas.append(c)
+            obs_vistas.add(obs)
+            if t:
+                tempos.append(t)
+        return escolhidas
 
     def copiar_modelos(subpasta: Path, escolhidas: list[dict]) -> list[str]:
         subpasta.mkdir(parents=True, exist_ok=True)
@@ -456,7 +490,7 @@ def guardar_modelos(relatorio: str,
     total = 0
     for ativ in escopo.get("atividades", []):
         aid = str(ativ.get("id") or "").strip()
-        if not aid:
+        if not aid or (somente and aid not in somente):
             continue
         tipo = sanitizar_nome(str(ativ.get("tipo") or ativ.get("titulo") or aid).lower())
         for etapa in ETAPAS:
@@ -480,7 +514,7 @@ def guardar_modelos(relatorio: str,
 
     ex_site: dict[str, list[str]] = {}
     por_tipo: dict[str, list[dict]] = {}
-    for c in linhas:
+    for c in linhas if not somente else []:
         if tem_vinculo(c, ATIVIDADE_SITE):
             por_tipo.setdefault(tipo_site(_campo(c, "observacao")), []).append(c)
     for tipo, grupo in sorted(por_tipo.items()):
@@ -530,6 +564,8 @@ def main(argv=None):
     ap.add_argument("--por-grupo", type=int, default=N_MODELOS_PADRAO,
                     help="fotos-modelo por (atividade, etapa) e por tipo de site "
                          f"(padrao: {N_MODELOS_PADRAO})")
+    ap.add_argument("--so-atividade", default=None,
+                    help="com --modelos: guarda só estas atividades (ids separados por vírgula, ex: 03)")
     ap.add_argument("--manter-destino", action="store_true",
                     help="nao limpa atividades/ antes de distribuir")
     ap.add_argument("--so-boas", action="store_true",
@@ -546,8 +582,10 @@ def main(argv=None):
         return
 
     if args.modelos:
+        somente = ({a.strip() for a in args.so_atividade.split(",") if a.strip()}
+                   if args.so_atividade else None)
         guardar_modelos(args.relatorio, por_grupo=args.por_grupo,
-                        base=args.base)
+                        base=args.base, somente=somente)
         return
 
     distribuir(args.relatorio, pasta_origem=args.origem, base=args.base,

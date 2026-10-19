@@ -77,7 +77,8 @@ features/montar_relatorio/
    grande; voltar revela onde estava. Botões **Avaliar/Copiar p/ Excel**
    trocam o painel lateral: no modo Copiar, a mesma foto é copiada (Ctrl+C),
    enviada ao Excel aberto (Ctrl+E) ou salva no tamanho LxA — mesma config
-   do fit_fotos. Atalhos: ← → navega, 1/2/3 etapa,
+   do fit_fotos. O Ctrl+E funciona também no modo Avaliar (usa a config do
+   painel Copiar, mesmo oculto). Atalhos: ← → navega, 1/2/3 etapa,
    0 limpa. O botão **Distribuir** monta as pastas sem sair da janela
    (marque "só boas" p/ pastas finais).
 7. **Distribuir via script e resumir** — se não usou o botão da janela,

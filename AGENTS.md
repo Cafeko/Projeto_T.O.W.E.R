@@ -65,7 +65,7 @@ Quando o usuário disser "novo relatório" (ou pedir ordenar + classificar junto
    - **de onde pegar as fotos** p/ ordenar (absoluto ou relativo à raiz;
      Enter = `Arquivos/Fotos`; se inválido, liste projeto e `Arquivos/`).
 2. **Ordene** seguindo `features/ordenar_fotos/AGENTS.md`
-   (modo copia, antiga primeiro, salvo pedido diferente).
+   **Padrão fixo: modo cópia + mais antiga primeiro** (não perguntar, a menos que o usuário peça diferente).
 3. **Prepare** o ambiente seguindo `features/classificar_fotos/AGENTS.md`
    passo 0 (`--preparar --relatorio <nome>`
    `--origem Arquivos/Fotos_Ordenadas`).

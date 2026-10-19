@@ -423,7 +423,7 @@ class Avaliador(tk.Tk):
         return "break"
 
     def _atalho_enviar(self, event):
-        if self.uso != "copiar" or self._foco_texto():
+        if self._foco_texto():
             return None
         self._enviar_atual()
         return "break"

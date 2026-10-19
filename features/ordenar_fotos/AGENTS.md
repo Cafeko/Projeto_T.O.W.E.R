@@ -30,8 +30,8 @@ Sempre nesta ordem, perguntando antes de agir:
 
 1. **Caminho das fotos** — aceite absoluto ou relativo à raiz do projeto. Enter = `Arquivos/fotos`. Se inválido/vazio, liste a pasta do projeto e `Arquivos/` para sugerir.
 2. **Extrair datas (VOCÊ faz)** — abra e leia **cada imagem** (o carimbo fica em geral no rodapé), transcreva a data/hora e **grave `Arquivos/resultado.csv`** no formato exato abaixo. Não prossiga se não houver fotos.
-3. **Cópia ou renomear?** — `1` = criar cópia ordenada em `Arquivos\Fotos_Ordenadas`; `2` = renomear os originais na própria pasta. Aceite linguagem natural ("cria copia", "renomeia ai").
-4. **Ordem** — `1` = mais antiga primeiro (`Foto (1)` = mais antiga); `2` = mais nova primeiro.
+3. **Cópia ou renomear?** — **padrão: cópia** em `Arquivos\Fotos_Ordenadas` (não perguntar). Só renomear os originais se o usuário pedir ("renomeia ai").
+4. **Ordem** — **padrão: `1` = mais antiga primeiro** (`Foto (1)` = mais antiga) (não perguntar). Só `2` (mais nova primeiro) se o usuário pedir.
 5. **Executar via script e resumir** — rode `organizar_fotos.py` com os flags correspondentes (ver Comandos) e informe quantidade, destino e ordem usada. O script **limpa o CSV sozinho** ao concluir (só cabeçalho) — você não precisa mexer na tabela depois.
 
 ## Como ler as datas das imagens
