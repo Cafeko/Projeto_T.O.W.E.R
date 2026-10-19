@@ -50,7 +50,9 @@ features/montar_relatorio/
 
 1. **Relatório** — pergunte o nome (ex: `gna_fonte_out2026`). Um por vez.
 2. **Origem das fotos** — Enter = `Arquivos/Fotos_Ordenadas`. Se
-   inválida/vazia, liste projeto e `Arquivos/`.
+   inválida/vazia, liste projeto e `Arquivos/`. As fotos devem vir **ordenadas
+   cronologicamente (a mais antiga = Foto (1))** — se não estiverem, use
+   `features/ordenar_fotos/AGENTS.md` (modo cópia, antiga primeiro) antes.
 3. **Preparar** — rode `--preparar` (copia p/ `fotos/`, cria `escopo.json`
    modelo + `evidencia.csv` todas PENDENTE).
 4. **Escopo (VOCÊ + usuário)** — edite `escopo.json`: para cada atividade,
