@@ -10,6 +10,11 @@
 > **Nunca copie/renomeie foto por conta própria**
 > (nada de `os.rename`, `shutil`, `move`, `copy` ou script ad-hoc).
 
+> **Atenção — não confundir:** aqui **RELATÓRIO = lote de trabalho** para
+> classificar por **classe**. Isto **não** é o relatório final de serviço
+> (agrupado por **atividade + etapa**), que é a funcionalidade
+> `features/montar_relatorio/`.
+
 ## O que faz
 
 Prepara o ambiente de cada **relatório** e classifica as fotos por **classe**.

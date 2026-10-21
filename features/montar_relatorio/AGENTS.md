@@ -9,6 +9,10 @@
 > **Nunca copie/renomeie foto por conta própria**
 > (nada de `os.rename`, `shutil`, `move`, `copy` ou script ad-hoc).
 
+> **"Novo relatório"/"montar relatório" = esta funcionalidade.** Ela agrupa
+> por **atividade + etapa**; não é o classificar por classe
+> (`features/classificar_fotos/`).
+
 ## O que faz
 
 Monta o relatório para **provar que o serviço foi feito**: fotos ordenadas
@@ -74,7 +78,9 @@ features/montar_relatorio/
 5. **Classificar (VOCÊ faz)** — abra e leia **cada imagem** de `fotos/` e
    preencha `evidencia.csv` no formato exato abaixo, pela **regra de foco**:
    só marque atividade+etapa se o conteúdo estiver nítido e identificável
-   com segurança; na dúvida, deixe vazio (= `_NAO_IDENTIFICADAS`).
+   com segurança; na dúvida, deixe vazio (= `_NAO_IDENTIFICADAS`). Evite
+   acumular fotos parecidas do mesmo assunto: no máximo 1–2 `boa` por
+   cena/equipamento (ver Regra de duplicadas), as demais como `duplicada`.
 6. **Avaliar (pessoa na janela)** — abra `avaliar_relatorio.py
    --relatorio <nome>`: mostra foto + sugestão da IA na MESMA ordem da
    grade; Enter = acertou, ou monte os vínculos (+ Juntar p/ N atividades,
@@ -156,10 +162,17 @@ Foto (3).jpeg,3,,,,PENDENTE,sem elemento nitido,
 
 ## Regra de duplicadas (dedupe)
 
-Fotos do mesmo assunto com carimbo próximo: escolha **uma** (a mais nítida
-e bem enquadrada → `boa`) e marque as demais `duplicada` com
-`similar a Foto (X)` na observação. `--so-boas` monta as pastas só com as
-boas (relatório final); sem a flag, copia tudo (para avaliar).
+Marque `duplicada` em dois casos:
+
+1. **Quase idênticas** (mesmo ângulo/enquadramento, tiradas em sequência,
+   mudando só um detalhe mínimo): mantenha a mais nítida/bem enquadrada
+   como `boa`.
+2. **Muitas fotos similares do mesmo assunto/cena** → manter no máximo **1–2** como `boa` e marcar o resto como `duplicada`.
+
+Fotos de ângulos/momentos realmente diferentes (ex.: antes/durante/depois,
+detalhe vs. vista geral) **não** são duplicadas: cada uma pode ficar `boa`
+se acrescentar informação. `--so-boas` monta as pastas só com as boas
+(relatório final); sem a flag, copia tudo (para avaliar).
 
 ## Regras
 

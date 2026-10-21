@@ -64,6 +64,9 @@ semdata.jpeg,,,,DATA NÃO ENCONTRADA,texto lido na imagem
 
 ## Regras
 
+- **Pasta única de saída**: a cópia ordenada vai sempre para a pasta padrão
+  `Arquivos/Fotos_Ordenadas`; não crie pasta alternativa (`_novas`, etc.).
+  O script limpa as fotos existentes no destino antes de copiar as novas.
 - **Nunca renomear/copiar fotos manualmente** (nada de `os.rename`, `shutil` ou scripts ad-hoc): a ordenação física é **sempre** via `organizar_fotos.py` desta pasta.
 - **A extração das datas é SUA tarefa** (ler imagens + gravar CSV).
 - **Execução**: rode o script a partir da **raiz do projeto**; caminhos relativos se resolvem contra a raiz.

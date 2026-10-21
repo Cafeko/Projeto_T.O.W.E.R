@@ -48,20 +48,42 @@ Projeto_T.O.W.E.R/
 ## Como atuar
 
 1. Descubra o que o usuário quer (se ambíguo, pergunte):
-   - **só ordenar**, **só classificar** (relatório já preparado ou fotos já
-     ordenadas), **só fit** (ver/copiar) — cada funcionalidade funciona
-     **separada**; siga o `AGENTS.md` dela;
-   - **relatório novo** (fluxo completo) — ver seção abaixo.
+   - **"novo relatório" / "montar relatório"** = funcionalidade 4,
+     `features/montar_relatorio/AGENTS.md` (agrupa por atividade + etapa:
+     antes/durante/depois). **Não** é o fluxo de classificar por classe;
+   - **só ordenar**, **só classificar** (lote de fotos por classe) ou
+     **só fit** (ver/copiar) — cada funcionalidade funciona **separada**;
+     siga o `AGENTS.md` dela. Em `classificar_fotos`, "relatório" é apenas o
+     nome do lote de trabalho, não o relatório final de serviço;
+   - **ordenar + classificar** (lote novo para classe) — ver
+     "Fluxo de novo lote para classificar" abaixo.
 2. Abra e siga o `AGENTS.md` **daquela funcionalidade** — ele tem o fluxo, o formato de dados e os comandos exatos.
 3. Rode os scripts sempre a partir da **raiz do projeto**; caminhos relativos se resolvem contra a raiz.
 4. Para adicionar uma nova funcionalidade: crie `features/<nome>/` com seu script + seu `AGENTS.md` próprio, e registre a linha na tabela acima.
 
-## Fluxo relatório novo (ordenar → classificar)
+## Fluxo montar relatório (atividade + etapa)
 
-Quando o usuário disser "novo relatório" (ou pedir ordenar + classificar juntos):
+Quando o usuário disser "**novo relatório**" ou "**montar relatório**":
+
+1. Siga `features/montar_relatorio/AGENTS.md` (ordem → preparar → escopo →
+   classificar por atividade/etapa → avaliar → distribuir).
+2. O resultado são pastas por **atividade** (`antes/durante/depois/`) — não
+   classes. Se as fotos ainda não estiverem ordenadas, ordene antes (modo
+   cópia, mais antiga primeiro).
+3. **Não** abra `modo_treino.py` desta funcionalidade: a validação humana é
+   em `avaliar_relatorio.py`.
+
+## Fluxo de novo lote para classificar (ordenar → classificar)
+
+> Use **somente** quando o usuário quiser **classificar fotos por classe**
+> (funcionalidade 3). "Novo lote" aqui é uma pasta de trabalho; não é o
+> relatório final de serviço da funcionalidade 4.
+
+Quando o usuário pedir "novo lote para classificar" (ou ordenar + classificar juntos):
 
 1. **Pergunte antes de agir** (as duas coisas juntas):
-   - nome do **relatório** (pasta de trabalho, ex: `gna_fonte_out2026`);
+   - nome do **lote/relatório de classificação** (pasta de trabalho,
+     ex: `gna_fonte_out2026`);
    - **de onde pegar as fotos** p/ ordenar (absoluto ou relativo à raiz;
      Enter = `Arquivos/Fotos`; se inválido, liste projeto e `Arquivos/`).
 2. **Ordene** seguindo `features/ordenar_fotos/AGENTS.md`
